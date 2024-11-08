@@ -2,7 +2,7 @@
 # CKKS in SageMath
 A CKKS implementation in SageMath which supports basic bootstrapping.
 
-This repository provides a SageMath implementation of the CKKS homomorphic encryption scheme [2](#albrecht2015), designed for efficient approximate computations on encrypted data. CKKS is particularly suited for applications involving complex numbers and approximate arithmetic.
+This repository provides a SageMath implementation of the CKKS homomorphic encryption scheme [2], designed for efficient approximate computations on encrypted data. CKKS is particularly suited for applications involving complex numbers and approximate arithmetic.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -20,31 +20,29 @@ The CKKS scheme enables approximate arithmetic operations on encrypted data, whi
 
 1. **Prerequisites**: Ensure you have SageMath 10.0 or higher installed. You can download it from the [SageMath website](https://www.sagemath.org/download.html).
    
-2. **Clone the Repository**:
+2. **Clone the repository**:
    ```bash
    git clone https://github.com/se-tim/CKKS-in-SageMath.git
    cd CKKS-in-SageMath
    ```
 
-3. **Dependencies**: There are no additional dependencies beyond SageMath.
-
 ## Files and Structure
 
-- `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme, including homomorphic arithmetic and bootstrapping [3].
+- `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme, including homomorphic arithmetic [2] and bootstrapping [3].
   
 - `poly.py`: Manages polynomial operations required for CKKS, like polynomial multiplication and modular reduction.
 
 - `fast_dft.py`: Contains an implementation of a version of the Discrete Fourier Transform [4], which is essential for encoding and decoding complex vectors in the CKKS scheme; it is also required for the CoeffToSlot and SlotToCoeff transformations, both of which are necessary for bootstrapping in CKKS.
 
-- `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples for setting parameters, key generation, encryption, decryption, homomorphic operations, and bootstrapping.
+- `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples.
 
 - `Cache`: This directory contains cached files generated during runtime. Do not delete.
 
-- `Estimator`: Security estimation for RLWE and LWE [1].
+- `Estimator`: For security estimation in the context of RLWE and LWE [1].
 
 ## Usage
 
-The `test.ipynb` notebook demonstrates the following steps in CKKS encryption:
+The `test.ipynb` notebook demonstrates the key components of the CKKS scheme, including:
 
 1. **Configuration**: Set CKKS parameters.
 2. **Key Generation**: Generate keys for encryption and decryption.
@@ -61,10 +59,10 @@ This project is open source and available under the MIT License. See `LICENSE` f
 
 ## References
 
-1.<a name="albrecht2015"></a> Albrecht, M.R., Player, R., & Scott, S. (2015). *On the Concrete Hardness of Learning with Errors*. Journal of Mathematical Cryptology, Volume 9, Issue 3, Pages 169–203. [doi:10.1515/jmc-2015-0016](https://doi.org/10.1515/jmc-2015-0016)
+1. Martin R. Albrecht, Rachel Player, & Sam Scott. *On the Concrete Hardness of Learning with Errors*. Journal of Mathematical Cryptology, Volume 9, Issue 3, Pages 169–203, 2015. [doi:10.1515/jmc-2015-0016](https://doi.org/10.1515/jmc-2015-0016)
 
-2. Cheon, J.H., Kim, A., Kim, M., & Song, Y. (2016). *Homomorphic Encryption for Arithmetic of Approximate Numbers*. Cryptology ePrint Archive, Paper 2016/421. [https://eprint.iacr.org/2016/421](https://eprint.iacr.org/2016/421)
+2. Jung Hee Cheon, Andrey Kim, Miran Kim, & Yongsoo Song. *Homomorphic Encryption for Arithmetic of Approximate Numbers*. Cryptology ePrint Archive, Paper 2016/421, 2016. [https://eprint.iacr.org/2016/421](https://eprint.iacr.org/2016/421)
 
-3. Cheon, J.H., Han, K., Kim, A., Kim, M., & Song, Y. (2018). *Bootstrapping for Approximate Homomorphic Encryption*. Cryptology ePrint Archive, Paper 2018/153. [https://eprint.iacr.org/2018/153](https://eprint.iacr.org/2018/153)
+3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, & Yongsoo Song. *Bootstrapping for Approximate Homomorphic Encryption*. Cryptology ePrint Archive, Paper 2018/153, 2018. [https://eprint.iacr.org/2018/153](https://eprint.iacr.org/2018/153)
 
-4. Cheon, J.H., Han, K., & Hhan, M. (2018). *Faster Homomorphic Discrete Fourier Transforms and Improved FHE Bootstrapping*. Cryptology ePrint Archive, Paper 2018/1073. [https://eprint.iacr.org/2018/1073](https://eprint.iacr.org/2018/1073)
+4. Jung Hee Cheon, Kyoohyung Han, & Minjeong Hhan. *Faster Homomorphic Discrete Fourier Transforms and Improved FHE Bootstrapping*. Cryptology ePrint Archive, Paper 2018/1073, 2018. [https://eprint.iacr.org/2018/1073](https://eprint.iacr.org/2018/1073)
