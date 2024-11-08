@@ -2,7 +2,7 @@
 # CKKS in SageMath
 A CKKS implementation in SageMath which supports basic bootstrapping.
 
-This repository provides a SageMath implementation of the CKKS homomorphic encryption scheme [2], designed for efficient approximate computations on encrypted data. CKKS is particularly suited for applications involving complex numbers and approximate arithmetic.
+This repository provides a SageMath implementation of the CKKS homomorphic encryption scheme [2](#albrecht2015), designed for efficient approximate computations on encrypted data. CKKS is particularly suited for applications involving complex numbers and approximate arithmetic.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -61,7 +61,7 @@ This project is open source and available under the MIT License. See `LICENSE` f
 
 ## References
 
-1. Albrecht, M.R., Player, R., & Scott, S. (2015). *On the Concrete Hardness of Learning with Errors*. Journal of Mathematical Cryptology, Volume 9, Issue 3, Pages 169–203. [doi:10.1515/jmc-2015-0016](https://doi.org/10.1515/jmc-2015-0016)
+1.<a name="albrecht2015"></a> Albrecht, M.R., Player, R., & Scott, S. (2015). *On the Concrete Hardness of Learning with Errors*. Journal of Mathematical Cryptology, Volume 9, Issue 3, Pages 169–203. [doi:10.1515/jmc-2015-0016](https://doi.org/10.1515/jmc-2015-0016)
 
 2. Cheon, J.H., Kim, A., Kim, M., & Song, Y. (2016). *Homomorphic Encryption for Arithmetic of Approximate Numbers*. Cryptology ePrint Archive, Paper 2016/421. [https://eprint.iacr.org/2016/421](https://eprint.iacr.org/2016/421)
 
