@@ -9,14 +9,12 @@ This repository provides a SageMath implementation of the CKKS homomorphic encry
 - [Installation](#installation)
 - [Files and Structure](#files-and-structure)
 - [Usage](#usage)
-- [Class Overview](#class-overview)
-- [Contributing](#contributing)
 - [License](#license)
 - [References](#references)
 
 ## Overview
 
-The CKKS scheme enables approximate arithmetic operations on encrypted data, which is useful for privacy preserving computations, where exact results are unnecessary or impossible to achieve. This implementation is based on SageMath. The scheme was originally introduced by Cheon et al. in 2016 [1], with subsequent work on bootstrapping by Cheon et al. in 2018 [3] and running time improvements by Cheon et al. in 2018 [4].
+The CKKS scheme enables approximate arithmetic operations on encrypted data, which is useful for privacy preserving computations for which exact results are unnecessary or impossible to achieve. The scheme was originally introduced by Cheon et al. in 2016 [2], with subsequent work on bootstrapping by Cheon et al. in 2018 [3] and running time improvements by Cheon et al. in 2018 [4]. This implementation is based on SageMath.
 
 ## Installation
 
@@ -32,21 +30,19 @@ The CKKS scheme enables approximate arithmetic operations on encrypted data, whi
 
 ## Files and Structure
 
-- **ckks.py**: Contains the CKKS class, implementing key aspects of the CKKS scheme, including homomorphic arithmetic and bootstrapping [3].
+- `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme, including homomorphic arithmetic and bootstrapping [3].
   
-- **poly.py**: Manages polynomial operations required for CKKS, like polynomial multiplication and modular reduction.
+- `poly.py`: Manages polynomial operations required for CKKS, like polynomial multiplication and modular reduction.
 
-- **fast_dft.py**: Implements a fast Discrete Fourier Transform (DFT), optimizing polynomial multiplications within the CKKS scheme [4].
+- `fast_dft.py`: Contains an implementation of a version of the Discrete Fourier Transform [4], which is essential for encoding and decoding complex vectors in the CKKS scheme; it is also required for the CoeffToSlot and SlotToCoeff transformations, both of which are necessary for bootstrapping in CKKS.
 
-- **test.ipynb**: A Jupyter notebook demonstrating CKKS functionality with examples for setting parameters, key generation, encryption, decryption, homomorphic operations, and bootstrapping.
+- `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples for setting parameters, key generation, encryption, decryption, homomorphic operations, and bootstrapping.
 
-- **Cache**: This directory contains cached files generated during runtime. Do not delete.
+- `Cache`: This directory contains cached files generated during runtime. Do not delete.
 
-- **Estimator**: Security estimation for RLWE and LWE instances [1].
+- `Estimator`: Security estimation for RLWE and LWE [1].
 
 ## Usage
-
-### Running Tests and Examples
 
 The `test.ipynb` notebook demonstrates the following steps in CKKS encryption:
 
@@ -55,34 +51,9 @@ The `test.ipynb` notebook demonstrates the following steps in CKKS encryption:
 3. **Encoding and Encryption**: Encode complex vectors into polynomials and encrypt them.
 4. **Decryption and Decoding**: Verify encryption by decrypting and decoding ciphertexts.
 5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts and verify results.
-6. **Bootstrapping**: Refresh ciphertexts to raise levels, and verify with decryption.
+6. **Bootstrapping**: Refresh ciphertexts to raise levels, and verify the result.
 
 Run the notebook cells sequentially to see these operations in action.
-
-## Class Overview
-
-### CKKS Class Functionalities
-
-- **Configuration (`config`)**: Set key CKKS parameters such as ring degree, slot count, maximum level, smallest modulus, and scaling factor.
-  
-- **Key Generation (`key_gen`)**: Generates the secret, public, and evaluation keys, with a security level estimation.
-
-- **Encoding/Decoding**: 
-  - **`encode`**: Encodes complex vectors as integer polynomials.
-  - **`decode`**: Decodes integer polynomials back into complex vectors.
-
-- **Encryption/Decryption**:
-  - **`enc_poly_with_sk`**: Encrypts a plaintext polynomial using the secret key.
-  - **`dec_to_poly`**: Decrypts ciphertext back to a plaintext polynomial.
-
-- **Homomorphic Operations**:
-  - **Arithmetic** (`__add__`, `__mul__`): Supports addition, multiplication, and other basic arithmetic between ciphertexts or between ciphertexts and plaintexts.
-  - **Modular Reduction and Rescaling** (`__mod__`, `rescale`): Allows modulus switching and rescaling to control noise.
-  - **Rotation, Conjugation, and Galois Automorphisms** (`rotate`, `conjugate`, `galois`): Enables Galois automorphisms and vector rotations, which are essential for operations on encrypted vectors.
-
-- **Bootstrapping**:
-  - **`config_bootstrap`**: Precomputes values required for bootstrapping.
-  - **`bootstrap`**: Refreshes ciphertexts to raise their levels.
 
 ## License
 
