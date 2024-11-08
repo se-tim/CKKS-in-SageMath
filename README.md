@@ -14,7 +14,7 @@ This repository provides a SageMath implementation of the CKKS homomorphic encry
 
 ## Overview
 
-The CKKS scheme enables approximate arithmetic operations on encrypted data, which is useful for privacy preserving computations for which exact results are unnecessary or impossible to achieve. The scheme was originally introduced by Cheon et al. in 2016 [2], with subsequent work on bootstrapping by Cheon et al. in 2018 [3] and running time improvements by Cheon et al. in 2018 [4]. This implementation is based on SageMath.
+The CKKS scheme enables approximate arithmetic operations on encrypted data, which is useful for privacy preserving computations for which exact results are unnecessary or impossible to achieve. The scheme was originally introduced by Cheon et al. in 2016 [2], with subsequent work on bootstrapping by Cheon et al. in 2018 [3] and running time improvements for bootstrapping by Cheon et al. in 2018 [4]. This SageMath implementation is based on these papers.
 
 ## Installation
 
@@ -48,7 +48,7 @@ The `test.ipynb` notebook demonstrates the key components of the CKKS scheme, in
 2. **Key Generation**: Generate keys for encryption and decryption.
 3. **Encoding and Encryption**: Encode complex vectors into polynomials and encrypt them.
 4. **Decryption and Decoding**: Verify encryption by decrypting and decoding ciphertexts.
-5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts and verify results.
+5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts, and verify results.
 6. **Bootstrapping**: Refresh ciphertexts to raise levels, and verify the result.
 
 Run the notebook cells sequentially to see these operations in action.
@@ -65,4 +65,4 @@ This project is open source and available under the MIT License. See `LICENSE` f
 
 3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, & Yongsoo Song. *Bootstrapping for Approximate Homomorphic Encryption*. Cryptology ePrint Archive, Paper 2018/153, 2018. [https://eprint.iacr.org/2018/153](https://eprint.iacr.org/2018/153)
 
-4. Jung Hee Cheon, Kyoohyung Han, & Minjeong Hhan. *Faster Homomorphic Discrete Fourier Transforms and Improved FHE Bootstrapping*. Cryptology ePrint Archive, Paper 2018/1073, 2018. [https://eprint.iacr.org/2018/1073](https://eprint.iacr.org/2018/1073)
+4. Jung Hee Cheon, Kyoohyung Han, & Minki Hhan. *Faster Homomorphic Discrete Fourier Transforms and Improved FHE Bootstrapping*. Cryptology ePrint Archive, Paper 2018/1073, 2018. [https://eprint.iacr.org/2018/1073](https://eprint.iacr.org/2018/1073)
