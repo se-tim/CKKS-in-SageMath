@@ -442,7 +442,7 @@ class CKKS:
         cls._check_modulus(pt.q)
         q = cls.moduli[-1] if pt.q == 0 else pt.q
         a = Poly.get_constant(0, cls.N, q)
-        b = pt
+        b = pt % q
         return cls(b, a)
 
     def dec_to_poly(self, sk):
