@@ -3,8 +3,6 @@ import pickle  # Saving in files
 
 load("bit_rev.py")
 
-# Multidiags class
-
 
 class Multidiags:
     """
