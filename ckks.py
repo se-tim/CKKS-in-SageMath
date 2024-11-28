@@ -36,7 +36,10 @@ class CKKS:
             ValueError:
                 If n is not a strict divisor of N.
         """
-        print("Setting the scheme's parameters...")
+        # Generating matrices required for encoding and decoding
+        get_grouped_E(n, 1, inverse=True)
+        get_grouped_E(n, 1, inverse=False)
+
         if N & N - 1 != 0:
             raise ValueError("N must be a power of two.")
         if N % n != 0 or n >= N:
@@ -49,10 +52,6 @@ class CKKS:
         cls.moduli = [
             cls.q0 * cls.delta**i for i in range(L + 1)
         ]  # All ct moduli for the scheme
-
-        print("Generating matrices required for encoding and decoding...")
-        get_grouped_E(n, 1, inverse=True)
-        get_grouped_E(n, 1, inverse=False)
 
         # Dictionary containing the polynomial versions of the groups of
         # matrices F_{2n, l} and iF_{2n, l}
@@ -67,14 +66,17 @@ class CKKS:
     # Key generation
 
     @classmethod
-    def key_gen(cls, h=None, P=None, sigma=3.2):
+    def key_gen(cls, h=None, sk=None, P=None, sigma=None):
         """
         Generate the secret key, public key and evaluation key for the scheme.
 
         Args:
             h (int, optional):
                 Hamming weight of the secret key. Defaults to
-                2 ** (log(N, 2) // 2 - 1).
+                2 ** (log(N, 2) // 2 - 1) if neither h nor sk are passed.
+            sk (Poly, optional):
+                Secret key for scheme. Defaults to a ternary polynomial of
+                Hamming weight equal to h.
             P (int, optional):
                 Factor for the evaluation key modulus. Defaults to the biggest
                 modulus accepted by the scheme, namely cls.moduli[-1].
@@ -85,45 +87,56 @@ class CKKS:
             RuntimeError:
                 If CKKS is not configured before key generation.
         """
-        print("Setting the scheme's key parameters...")
         try:
             cls.N
         except AttributeError:
             raise RuntimeError("Ask Alice to configure CKKS first.")
-        cls.h = (
-            2 ** (log(cls.N, 2) // 2 - 1) if h is None else h
-        )  # Hamming weight of secret key
-        cls.P = (
-            cls.moduli[-1] if P is None else P
-        )  # Required for modulus of evaluation key
-        cls.sigma = sigma  # Standard deviation for error polynomials
 
-        print("Generating secret key...")
+        if sk is not None:
+            cls.h = sum(sk.coeffs[i] != 0 for i in range(cls.N))
+        elif h is not None:
+            cls.h = h
+        else:
+            cls.h = 2 ** (log(cls.N, 2) // 2 - 1)
+
+        cls.P = cls.moduli[-1] if P is None else P
+        cls.sigma = 3.2 if sigma is None else sigma
+
         q_evk = cls.P * cls.moduli[-1]
-        cls.sk = Poly.get_random_ternary1(cls.N, q_evk, cls.h)  # Secret key
+        if sk is not None:
+            cls.sk = sk % q_evk
+        else:
+            cls.sk = Poly.get_random_ternary1(cls.N, q_evk, cls.h)
 
-        print("Generating public key...")
         e = Poly.get_random_normal(cls.N, cls.moduli[-1], cls.sigma)
         pk1 = Poly.get_random_uniform(cls.N, cls.moduli[-1])
         pk0 = e - pk1 * cls.sk
-        cls.pk = (pk0, pk1)  # Public key
+        cls.pk = (pk0, pk1)
 
-        print("Generating evaluation key...")
         e = Poly.get_random_normal(cls.N, q_evk, cls.sigma)
         evk1 = Poly.get_random_uniform(cls.N, q_evk)
         evk0 = e + cls.P * cls.sk**2 - evk1 * cls.sk
-        cls.evk = (evk0, evk1)  # Evaluation key
+        cls.evk = (evk0, evk1)
 
         cls.galois_swk_dict = {}  # Dictionary containing the swk for Galois
 
+        # Check if the secret key is ternary; else it is binary
+        if sk is None:
+            sk_is_ternary = True
+        else:
+            sk_is_ternary = False
+            for i in range(cls.N):
+                if cls.sk.coeffs[i] == -1:
+                    sk_is_ternary = True
+
+        print("The key generation is done!")
+
         try:
-            print(
-                f"Estimated security: "
-                f"2^({log(cls.get_security(),2).n(digits=3)})."
-            )
+            security = cls.get_security(sk_is_binary=not (sk_is_ternary))
+            print(f"Estimated security: 2^({log(security,2).n(digits=3)}).")
         except (RuntimeError, TypeError):
             print("Estimated security: very low.")
-        print("The key generation is done!\n")
+        print()
 
     @classmethod
     def _check_key_gen(cls):
@@ -201,19 +214,27 @@ class CKKS:
     # Security estimation
 
     @classmethod
-    def get_security(cls):
+    def get_security(cls, sk_is_binary=False):
         """
         Use the LWE estimator to compute the security level based on the
         current CKKS parameters.
+
+        Args:
+            sk_is_binary (bool):
+                Whether the secret key is binary. Defaults to False.
 
         Returns:
             float:
                 Estimated security level.
         """
+        (p, m) = (
+            (cls.h // 2, cls.h // 2) if sk_is_binary == False else (cls.h, 0)
+        )  # Number of coefficients in sk equal to +1 and -1, respectively
+
         params = LWE.Parameters(
             cls.N,
             cls.moduli[-1] * cls.P,
-            Xs=ND.SparseTernary(n=cls.N, p=cls.h // 2, m=cls.h // 2),
+            Xs=ND.SparseTernary(n=cls.N, p=p, m=m),
             Xe=ND.DiscreteGaussian(n=cls.N, stddev=cls.sigma),
         )
         return LWE.primal_usvp(params)["rop"]
@@ -273,20 +294,19 @@ class CKKS:
     @classmethod
     def encode(cls, z):
         """
-        Encode a complex vector z (in bit reversed order) into an integer
-        polynomial. This process requires applying the inverse of a variant of
-        the DFT matrix, and scaling the result by the factor delta to achieve
-        the necessary precision.
+        Encode a complex vector z into an integer polynomial. This process
+        requires applying the inverse of a variant of the DFT matrix, and
+        scaling the result by the factor delta to achieve the necessary
+        precision.
 
         Args:
             z (np.ndarray or np.complex128):
                 A complex vector (of length 1 if z is an np.complex128) to
-                encode. The vector is expected to be in bit reversed order.
+                encode.
 
         Returns:
             Poly:
-                Integer polynomial encoding the vector z, but in bit reversed
-                order.
+                Integer polynomial encoding the vector z.
 
         Raises:
             ValueError:
@@ -311,7 +331,7 @@ class CKKS:
 
         grouped_iE = get_grouped_E(n, 1, inverse=True)
 
-        w = copy(z)
+        w = bit_rev_vector(z, num_bits=log(n, 2))
         for A in grouped_iE:
             w = A.BSGS_mult(w)
         w *= cls.delta
@@ -330,9 +350,9 @@ class CKKS:
     @classmethod
     def decode(cls, pt, n=None):
         """
-        Decode an integer polynomial to a complex vector (in bit reversed
-        order) of length n. This process is effectively the inverse of the
-        previously described encode method.
+        Decode an integer polynomial to a complex vector of length n. This
+        process is effectively the inverse of the previously described encode
+        method.
 
         Args:
             pt (Poly):
@@ -342,7 +362,7 @@ class CKKS:
 
         Returns:
             np.ndarray:
-                Complex vector z of length n (in bit reversed order).
+                Complex vector z of length n.
 
         Raises:
             ValueError:
@@ -365,7 +385,7 @@ class CKKS:
             w = A.BSGS_mult(w)
         w /= cls.delta
 
-        return w
+        return bit_rev_vector(w, log(n, 2))
 
     # Encryption and decryption
 
@@ -911,8 +931,7 @@ class CKKS:
 
     def rotate(self, k, n=None, swk=None):
         """
-        Rotate the underlying plaintext vector (in bit reversed order) by k
-        slots.
+        Rotate the underlying plaintext vector by k slots.
 
         Args:
             k (int):
@@ -936,12 +955,11 @@ class CKKS:
     @classmethod
     def get_poly_matrix(cls, A):
         """
-        Apply bit reversal to the diagonals of matrix A, then encode them as
-        polynomials.
+        Encode diagonals of matrix A as polynomials.
 
         Args:
             A (Multidiags):
-                Square matrix of size n x n whose diagonals are to be encoded.
+                Square matrix whose diagonals are to be encoded.
 
         Returns:
             dict:
@@ -949,25 +967,14 @@ class CKKS:
 
         Raises:
             ValueError:
-                If matrix A has incorrect size (must be n x n).
+                If size of A does not divide N.
         """
+        if cls.N // 2 % A.n != 0:
+            raise ValueError("The matrix size should divide N / 2.")
 
-        def bit_rev_vector(z, num_bits):
-            # Put coefficients of vector into bit reversed order
-            return np.array([z[bit_rev(i, num_bits)] for i in range(len(z))])
-
-        if A.n != cls.n:
-            raise ValueError("Matrix is of wrong size.")
-
-        poly_matrix = {}
-        indices = A.get_symm_diag_indices()
-
-        num_bits = log(cls.n, 2)
-        for i in indices:
-            z = bit_rev_vector(A.get_diag(i), num_bits)
-            poly_matrix[i] = cls.encode(z)
-
-        return poly_matrix
+        return {
+            i: cls.encode(A.get_diag(i)) for i in A.get_symm_diag_indices()
+        }
 
     def BSGS_left_mult(self, poly_matrix):
         """
@@ -1050,14 +1057,14 @@ class CKKS:
             print("Encoding relevant vectors as polynomials...")
             cls.CtS_StC_poly_dict["one_and_i"] = CKKS.encode(
                 np.array(
-                    [(1 - 1j) * (i % 2 == 0) + 1j for i in range(2 * cls.n)]
+                    [(1 - 1j) * (i < cls.n) + 1j for i in range(2 * cls.n)]
                 )
             )
             cls.CtS_StC_poly_dict["one_and_zero"] = CKKS.encode(
-                np.array([0.5 * (i % 2 == 0) for i in range(2 * cls.n)])
+                np.array([0.5 * (i < cls.n) for i in range(2 * cls.n)])
             )
             cls.CtS_StC_poly_dict["i_and_zero"] = CKKS.encode(
-                np.array([-0.5 * 1j * (i % 2 == 1) for i in range(2 * cls.n)])
+                np.array([-0.5 * 1j * (i >= cls.n) for i in range(2 * cls.n)])
             )
 
         if s not in cls.grouped_poly_F_dict:
@@ -1315,7 +1322,7 @@ class CKKS:
             ct = ct.partial_sum()
             ct = (
                 (self.delta * 2 * self.n // self.N) * ct
-            ).rescale()  # Remove factor N // (2 * n)
+            ).rescale()  # Remove factor N / (2 * n)
 
         cts = ct.CoeffToSlot(s)  # List of one or two ciphertexts
 
