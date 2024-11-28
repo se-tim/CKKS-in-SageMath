@@ -1,6 +1,8 @@
 import numpy as np
 import pickle  # Saving in files
 
+load("bit_rev.py")
+
 # Multidiags class
 
 
@@ -340,27 +342,6 @@ def _check_power_two(n):
         raise ValueError("n must be a power of two.")
 
 
-def bit_rev(i, num_bits):
-    """
-    Compute the bit reversed of i.
-
-    Args:
-        i (int):
-            The integer to reverse.
-        num_bits (int):
-            The number of bits considered.
-
-    Returns:
-        int:
-            The bit reversed integer.
-    """
-    rev = 0
-    for _ in range(num_bits):
-        rev = (rev << 1) | (i & 1)
-        i >>= 1
-    return rev
-
-
 def get_E(n, l, inverse=False):
     """
     Get the matrix E_{n, l} or iE_{n, l} for 2**l < n:
@@ -498,7 +479,7 @@ def get_F(n, l, inverse=False):
     diag1 = np.zeros(n, dtype=np.complex128)
     diag2 = np.zeros(n, dtype=np.complex128)
 
-    indices = [(k // 2 * 5**i) % (4 * n) for i in range(n_over_k)]
+    indices = [(half_k * 5**i) % (4 * n) for i in range(n_over_k)]
 
     if inverse == False:
         for i in range(n):
