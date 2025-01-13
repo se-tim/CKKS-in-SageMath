@@ -247,9 +247,9 @@ class Multidiags:
         while t & (t - 1) != 0:
             # Ensure that t is a power of two
             t += 1
-        half_log_2_t = log(t, 2) / 2
-        k0 = 2 ** floor(half_log_2_t)
-        k1 = 2 ** ceil(half_log_2_t)
+        half_log_t = log(t, 2) / 2
+        k0 = 2 ** floor(half_log_t)
+        k1 = 2 ** ceil(half_log_t)
 
         rotated_w = {
             d * j + u_min: np.roll(w, -d * j - u_min) for j in range(k1)
@@ -390,10 +390,10 @@ def get_E(n, l, inverse=False):
     diag1 = np.zeros(n, dtype=np.complex128)
     diag2 = np.zeros(n, dtype=np.complex128)
 
-    log_2_n = log(n, 2)
+    log_n = log(n, 2)
 
     indices = [
-        (2**l * 5 ** bit_rev(i, int(log_2_n) - 1 - l)) % (4 * n)
+        (2**l * 5 ** bit_rev(i, int(log_n) - 1 - l)) % (4 * n)
         for i in range(n // k)
     ]
 

@@ -1006,9 +1006,9 @@ class CKKS:
         while t & t - 1 != 0:
             # Ensure that t is a power of two
             t += 1
-        half_log_2_t = log(t, 2) / 2
-        k0 = 2 ** floor(half_log_2_t)
-        k1 = 2 ** ceil(half_log_2_t)
+        half_log_t = log(t, 2) / 2
+        k0 = 2 ** floor(half_log_t)
+        k1 = 2 ** ceil(half_log_t)
 
         rotated_ct = {
             d * j + u_min: self.rotate(d * j + u_min) for j in range(k1)
@@ -1031,6 +1031,38 @@ class CKKS:
             ct0 = ct0.rotate(a)
             ct_out += ct0
         return ct_out
+
+    @classmethod
+    def get_BSGS_rotation_indices(cls, poly_matrix):
+        """
+        Calculate the rotation indices required for the fast matrix ciphertext
+        multiplication using the Baby Step Giant Step algorithm. This is useful
+        to precompute the corresponding switching keys.
+
+        Args:
+            poly_matrix (dict):
+                Dictionary mapping diagonal indices to polynomials.
+
+        Returns:
+            list: The list of rotation indices.
+        """
+        U = list(poly_matrix.keys())
+        t = len(U)
+        d = U[1] - U[0]
+        u_min = min(U)
+
+        while t & t - 1 != 0:
+            # Ensure that t is a power of two
+            t += 1
+        half_log_t = log(t, 2) / 2
+        k0 = 2 ** floor(half_log_t)
+        k1 = 2 ** ceil(half_log_t)
+
+        rotation_indices = [(d * j + u_min) % cls.n for j in range(k1)] + [
+            (d * i * k1) % cls.n for i in range(k0)
+        ]
+
+        return rotation_indices
 
     #  Bootstrapping
 
@@ -1090,21 +1122,7 @@ class CKKS:
 
         rotation_indices = [] if 2 * cls.n == cls.N else [cls.n]
         for poly_matrix in grouped_poly_F + grouped_poly_iF:
-            U = list(poly_matrix.keys())
-            t = len(U)
-            d = U[1] - U[0]
-            u_min = min(U)
-
-            while t & t - 1 != 0:
-                # Ensure that t is a power of two
-                t += 1
-            half_log_2_t = log(t, 2) / 2
-            k0 = 2 ** floor(half_log_2_t)
-            k1 = 2 ** ceil(half_log_2_t)
-
-            rotation_indices += [
-                (d * j + u_min) % cls.n for j in range(k1)
-            ] + [(d * i * k1) % cls.n for i in range(k0)]
+            rotation_indices += cls.get_BSGS_rotation_indices(poly_matrix)
 
         for k in rotation_indices:
             # For CtS and StC
@@ -1112,10 +1130,9 @@ class CKKS:
 
         cls.get_galois_swk(-1, sk)  # For conjugation
 
-        l = log(cls.N // (2 * cls.n), 2)
-        for k in range(l):
+        for k in range(log(N, 2)):
             # For partial sum
-            cls.get_galois_swk(5 ** (cls.n * 2**k), sk)
+            cls.get_galois_swk(5 ** (2**k), sk)
 
         print("The bootstrapping configuration is done!\n")
 
