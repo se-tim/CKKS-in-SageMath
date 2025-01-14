@@ -307,6 +307,8 @@ def get_roots_of_unity(n):
         raise ValueError("We only compute roots of unity for even n.")
 
     folder = os.path.join("Cache", "Roots of Unity")
+    os.makedirs(folder, exist_ok=True)
+
     file = os.path.join(folder, f"roots_{n}.npy")
 
     if os.path.exists(file):
@@ -368,6 +370,8 @@ def get_E(n, l, inverse=False):
     _check_power_two(n)
 
     folder = os.path.join("Cache", "Matrices E")
+    os.makedirs(folder, exist_ok=True)
+
     if inverse == False:
         file = os.path.join(folder, f"E_{n}_{l}.npy")
     else:
@@ -453,6 +457,8 @@ def get_F(n, l, inverse=False):
     _check_power_two(n)
 
     folder = os.path.join("Cache", "Matrices F")
+    os.makedirs(folder, exist_ok=True)
+
     if inverse == False:
         file = os.path.join(folder, f"F_{n}_{l}.npy")
     else:
@@ -577,6 +583,8 @@ def get_grouped_E(n, s, inverse=False):
     _check_power_two(n)
 
     folder = os.path.join("Cache", "Grouped Matrices E")
+    os.makedirs(folder, exist_ok=True)
+
     if inverse == False:
         file = os.path.join(folder, f"grouped_E_{n}_{s}.npy")
     else:
@@ -615,6 +623,8 @@ def get_grouped_F(n, s, inverse=False):
     _check_power_two(n)
 
     folder = os.path.join("Cache", "Grouped Matrices F")
+    os.makedirs(folder, exist_ok=True)
+
     if inverse == False:
         file = os.path.join(folder, f"grouped_F_{n}_{s}.npy")
     else:

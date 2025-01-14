@@ -51,7 +51,6 @@ both of which are necessary for bootstrapping in CKKS.
 - `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples.
 
 - `Cache`: This directory contains cached files generated during runtime.
-Do not delete.
 
 - `Estimator`: For security estimation in the context of RLWE and LWE [1].
 
