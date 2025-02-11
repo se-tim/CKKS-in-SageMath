@@ -186,7 +186,7 @@ class Poly:
                 List of symmetric coefficients.
         """
         if self.q == 0:
-            return self.coeffs.list()
+            return [self.coeffs[i] for i in range(self.N)]
         return [self.coeffs[i].lift_centered() for i in range(self.N)]
 
     # Modular reduction and lifting
