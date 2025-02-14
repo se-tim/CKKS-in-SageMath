@@ -950,6 +950,27 @@ class CKKS:
         k = k % n
         return self.galois(5**k, swk)
 
+    def conj_rotate(self, k, n=None, swk=None):
+        """
+        Conjugate and rotate the underlying plaintext vector by k slots.
+
+        Args:
+            k (int):
+                Number of slots to rotate.
+            n (int, optional):
+                Length of the underlying plaintext vector.
+            swk (tuple, optional):
+                Switching key for the conjugation with rotation.
+
+        Returns:
+            CKKS:
+                Resulting ciphertext after conjugation and rotation.
+        """
+        if n is None:
+            n = self.n
+        k = k % n
+        return self.galois(-(5**k), swk)
+
     # Multiplication by special matrices
 
     @classmethod
