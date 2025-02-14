@@ -1026,11 +1026,11 @@ class CKKS:
                     continue
                 p = poly_matrix[c]
                 p = p.galois(5 ** ((-a) % self.n))
-                ct1 = p @ rotated_ct[b]
+                ct1 = p * rotated_ct[b]
                 ct0 = ct0 + ct1
             ct0 = ct0.rotate(a)
             ct_out += ct0
-        return ct_out
+        return ct_out.rescale()
 
     @classmethod
     def get_BSGS_rotation_indices(cls, poly_matrix):
