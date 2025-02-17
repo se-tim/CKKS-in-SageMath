@@ -35,24 +35,27 @@ You can download it from the [SageMath website](https://www.sagemath.org/downloa
    cd CKKS-in-SageMath
    ```
 
-## Files and Structure
+## Files and Structure- 
+
+- `bit_rev.py`: Implements functions for bit reversal operations.
+
+- `Cache`: Directory storing cached files generated during runtime.
+It is automatically created if it does not exist.
 
 - `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme,
 including homomorphic arithmetic [2] and bootstrapping [3].
-  
-- `poly.py`: Manages polynomial operations required for CKKS,
-like polynomial multiplication and modular reduction.
+
+- `Estimator`: For security estimation in the context of RLWE and LWE [1].
 
 - `fast_dft.py`: Contains an implementation of a version of the Discrete Fourier Transform [4],
 which is essential for encoding and decoding complex vectors in the CKKS scheme;
 it is also required for the CoeffToSlot and SlotToCoeff transformations,
 both of which are necessary for bootstrapping in CKKS.
+  
+- `poly.py`: Manages polynomial operations required for CKKS,
+like polynomial multiplication and modular reduction.
 
 - `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples.
-
-- `Cache`: This directory contains cached files generated during runtime.
-
-- `Estimator`: For security estimation in the context of RLWE and LWE [1].
 
 ## Usage
 
