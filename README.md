@@ -35,7 +35,7 @@ You can download it from the [SageMath website](https://www.sagemath.org/downloa
    cd CKKS-in-SageMath
    ```
 
-## Files and Structure- 
+## Files and Structure
 
 - `bit_rev.py`: Implements functions for bit reversal operations.
 
