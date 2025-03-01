@@ -45,7 +45,7 @@ It is automatically created if it does not exist.
 - `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme,
 including homomorphic arithmetic [2] and bootstrapping [3].
 
-- `Estimator`: For security estimation in the context of RLWE and LWE [1].
+- `lattice_estimator`: For security estimation in the context of RLWE and LWE [1].
 
 - `fast_dft.py`: Contains an implementation of a version of the Discrete Fourier Transform [4],
 which is essential for encoding and decoding complex vectors in the CKKS scheme;

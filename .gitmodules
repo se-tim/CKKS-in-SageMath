@@ -4,3 +4,6 @@
 [submodule "lattice-estimator"]
 	path = lattice-estimator
 	url = https://github.com/malb/lattice-estimator.git
+[submodule "lattice_estimator"]
+	path = lattice_estimator
+	url = https://github.com/malb/lattice-estimator.git

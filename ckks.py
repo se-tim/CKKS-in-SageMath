@@ -1,4 +1,4 @@
-from estimator import *
+from lattice_estimator.estimator import *
 
 load("poly.py")
 load("fast_dft.py")
