@@ -1,8 +1,6 @@
 import numpy as np
-from sage.libs.ntl import *  # Fast polynomial multiplication
-from sage.libs.ntl.ntl_ZZ_p import (
-    ntl_ZZ_p_random_element,
-)  # Random elements from ntl_ZZ_p
+from sage.all import *
+from sage.libs.ntl.ntl_ZZ_p import ntl_ZZ_p_random_element
 
 
 class Poly:
@@ -77,7 +75,7 @@ class Poly:
             return ntl.ZZX(coeffs) if q == 0 else ntl.ZZ_pX(coeffs, q)
         input_q = (
             0
-            if isinstance(coeffs, ntl_ZZX.ntl_ZZX)
+            if isinstance(coeffs, sage.libs.ntl.ntl_ZZX.ntl_ZZX)
             else coeffs.get_modulus_context().modulus()
         )
         if input_q == q:

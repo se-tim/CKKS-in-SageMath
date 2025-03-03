@@ -1,7 +1,7 @@
 import numpy as np
-import pickle  # Saving in files
-
-load("bit_rev.py")
+import pickle
+from sage.all import *
+from .bit_rev import *
 
 
 class Multidiags:
@@ -306,7 +306,8 @@ def get_roots_of_unity(n):
     if n % 2 != 0:
         raise ValueError("We only compute roots of unity for even n.")
 
-    folder = os.path.join("Cache", "Roots of Unity")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(script_dir, "Cache", "Roots of Unity")
     os.makedirs(folder, exist_ok=True)
 
     file = os.path.join(folder, f"roots_{n}.npy")
@@ -369,7 +370,8 @@ def get_E(n, l, inverse=False):
     """
     _check_power_two(n)
 
-    folder = os.path.join("Cache", "Matrices E")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(script_dir, "Cache", "Matrices E")
     os.makedirs(folder, exist_ok=True)
 
     if inverse == False:
@@ -456,7 +458,8 @@ def get_F(n, l, inverse=False):
     """
     _check_power_two(n)
 
-    folder = os.path.join("Cache", "Matrices F")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(script_dir, "Cache", "Matrices F")
     os.makedirs(folder, exist_ok=True)
 
     if inverse == False:
@@ -582,7 +585,8 @@ def get_grouped_E(n, s, inverse=False):
     """
     _check_power_two(n)
 
-    folder = os.path.join("Cache", "Grouped Matrices E")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(script_dir, "Cache", "Grouped Matrices E")
     os.makedirs(folder, exist_ok=True)
 
     if inverse == False:
@@ -622,7 +626,8 @@ def get_grouped_F(n, s, inverse=False):
     """
     _check_power_two(n)
 
-    folder = os.path.join("Cache", "Grouped Matrices F")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(script_dir, "Cache", "Grouped Matrices F")
     os.makedirs(folder, exist_ok=True)
 
     if inverse == False:

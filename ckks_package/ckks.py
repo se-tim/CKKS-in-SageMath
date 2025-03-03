@@ -1,7 +1,7 @@
-from lattice_estimator.estimator import *
-
-load("poly.py")
-load("fast_dft.py")
+from sage.all import *
+from .lattice_estimator.estimator import *
+from .poly import *
+from .fast_dft import *
 
 
 class CKKS:
@@ -1151,7 +1151,7 @@ class CKKS:
 
         cls.get_galois_swk(-1, sk)  # For conjugation
 
-        for k in range(log(N, 2)):
+        for k in range(log(cls.N, 2)):
             # For partial sum
             cls.get_galois_swk(5 ** (2**k), sk)
 

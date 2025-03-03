@@ -9,7 +9,7 @@ CKKS is particularly suited for applications involving complex numbers and appro
 ## Table of Contents
 - [Overview](#overview)
 - [Installation](#installation)
-- [Files and Structure](#files-and-structure)
+- [Repository Structure](#files-and-structure)
 - [Usage](#usage)
 - [License](#license)
 - [References](#references)
@@ -35,27 +35,38 @@ You can download it from the [SageMath website](https://www.sagemath.org/downloa
    cd CKKS-in-SageMath
    ```
 
-## Files and Structure
+3. **Initialize the submodules**: If you intend to use this CKKS implementation as a package,
+you must ensure all submodules are correctly initialized,
+as explained here:
+[Git submodule inside of a submodule (nested submodules)](https://stackoverflow.com/q/1535524).
+Therefore, run the following command inside the cloned repository:
+   ```bash
+   git submodule update --init --recursive
+   ```
 
-- `bit_rev.py`: Implements functions for bit reversal operations.
+## Repository Structure
 
-- `Cache`: Directory storing cached files generated during runtime.
-It is automatically created if it does not exist.
+- **`ckks_package/`**: The main package containing all implementations related to the CKKS scheme.
 
-- `ckks.py`: Contains the CKKS class, implementing key aspects of the CKKS scheme,
-including homomorphic arithmetic [2] and bootstrapping [3].
+  - **`bit_rev.py`**: Implements functions for bit reversal operations.
 
-- `lattice_estimator`: For security estimation in the context of RLWE and LWE [1].
+  - **`ckks.py`**: Contains the CKKS class,
+  implementing key aspects of the CKKS scheme,
+  including homomorphic arithmetic [2] and bootstrapping [3].
 
-- `fast_dft.py`: Contains an implementation of a version of the Discrete Fourier Transform [4],
-which is essential for encoding and decoding complex vectors in the CKKS scheme;
-it is also required for the CoeffToSlot and SlotToCoeff transformations,
-both of which are necessary for bootstrapping in CKKS.
-  
-- `poly.py`: Manages polynomial operations required for CKKS,
-like polynomial multiplication and modular reduction.
+  - **`fast_dft.py`**: Implements a version of the Discrete Fourier Transform [4],
+  essential for encoding and decoding complex vectors in CKKS.
+  It is also required for the CoeffToSlot and SlotToCoeff transformations,
+  both of which are necessary for bootstrapping in CKKS.
 
-- `test.ipynb`: A Jupyter notebook demonstrating CKKS functionality with examples.
+  - **`poly.py`**: Manages polynomial operations required for CKKS.
+
+  - **`lattice_estimator/`**: This is a submodule.
+  It is a tool for security estimation in the context of RLWE and LWE [1].
+  Make sure that this is initialized correctly,
+  as described in the section [Installation](#installation).
+
+- **`test.ipynb`**: A Jupyter notebook demonstrating the CKKS functionality with examples.  
 
 ## Usage
 
@@ -65,8 +76,10 @@ The `test.ipynb` notebook demonstrates the key components of the CKKS scheme, in
 2. **Key Generation**: Generate keys for encryption and decryption.
 3. **Encoding and Encryption**: Encode complex vectors into polynomials and encrypt them.
 4. **Decryption and Decoding**: Verify encryption by decrypting and decoding ciphertexts.
-5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts, and verify results.
-6. **Bootstrapping**: Refresh ciphertexts to raise levels, and verify the result.
+5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts,
+and verify the results.
+6. **Bootstrapping**: Refresh a ciphertext to raise its level,
+and verify the result.
 
 Run the notebook cells sequentially to see these operations in action.
 
