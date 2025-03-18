@@ -971,6 +971,91 @@ class CKKS:
         k = k % n
         return self.galois(-(5**k), swk)
 
+    # Trace and product operators
+
+    def trace(self, a, b, swks=None):
+        """
+        Perform a partial trace operation on the underlying plaintext vector,
+        from a slots to b slots. Slot i of the resulting vector will be the
+        sum of the slots i, i + b, i + 2b, ... of the original vector.
+
+        Args:
+            a (int):
+                Length of the original underlying plaintext vector.
+            b (int):
+                Length of the resulting vector.
+            swks (list, optional):
+                List of switching keys for the required rotations.
+
+        Returns:
+            CKKS:
+                Resulting ciphertext after applying the partial trace opertor.
+
+        Raises:
+            ValueError:
+                If a is not a power of two.
+            ValueError:
+                If b does not divide a.
+        """
+        if a & (a - 1) != 0:
+            raise ValueError(
+                "The length a of the original vector is a power of two."
+            )
+        if a % b != 0:
+            raise ValueError(
+                "The length b of the resulting vector should divide "
+                "the length a of the original vector."
+            )
+
+        log_a_over_b = log(a / b, 2)
+        if swks is None:
+            swks = [None] * log_a_over_b
+        for l in range(log_a_over_b):
+            self += self.rotate(a // 2 ** (l + 1), swks[l])
+        return self
+
+    def product(self, a, b, swks=None):
+        """
+        Perform a partial product operation on the underlying plaintext vector,
+        from a slots to b slots. Slot i of the resulting vector will be the
+        product of the slots i, i + b, i + 2b, ... of the original vector.
+
+        Args:
+            a (int):
+                Length of the original underlying plaintext vector.
+            b (int):
+                Length of the resulting plaintext vector.
+            swks (list, optional):
+                List of switching keys for the required rotations.
+
+        Returns:
+            CKKS:
+                Resulting ciphertext after applying the partial product
+                opertor.
+
+        Raises:
+            ValueError:
+                If a is not a power of two.
+            ValueError:
+                If b does not divide a.
+        """
+        if a & (a - 1) != 0:
+            raise ValueError(
+                "The length a of the original vector is a power of two."
+            )
+        if a % b != 0:
+            raise ValueError(
+                "The length b of the resulting vector should divide "
+                "the length a of the original vector."
+            )
+
+        log_a_over_b = log(a / b, 2)
+        if swks is None:
+            swks = [None] * log_a_over_b
+        for l in range(log_a_over_b):
+            self @= self.rotate(a // 2 ** (l + 1), swks[l])
+        return self
+
     # Multiplication by special matrices
 
     @classmethod
