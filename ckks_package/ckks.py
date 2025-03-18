@@ -14,7 +14,7 @@ class CKKS:
     """
 
     @classmethod
-    def config(cls, N, n, L, q0, delta):
+    def config(cls, N, n, L, q0, p):
         """
         Configure basic CKKS parameters.
 
@@ -27,8 +27,8 @@ class CKKS:
                 Maximal level.
             q0 (int):
                 Smallest modulus.
-            delta (int):
-                Scaling factor.
+            p (int):
+                Scaling factor outside of bootstrapping.
 
         Raises:
             ValueError:
@@ -48,9 +48,9 @@ class CKKS:
         cls.n = n  # Number of slots
         cls.L = L  # Maximal level
         cls.q0 = q0  # Smallest modulus
-        cls.delta = delta  # Scaling factor
+        cls.p = p  # Scaling factor outside of bootstrapping
         cls.moduli = [
-            cls.q0 * cls.delta**i for i in range(L + 1)
+            cls.q0 * cls.p**i for i in range(L + 1)
         ]  # All ct moduli for the scheme
 
         # Dictionary containing the polynomial versions of the groups of
@@ -227,14 +227,14 @@ class CKKS:
             float:
                 Estimated security level.
         """
-        (p, m) = (
+        (my_plus, my_minus) = (
             (cls.h // 2, cls.h // 2) if sk_is_binary == False else (cls.h, 0)
         )  # Number of coefficients in sk equal to +1 and -1, respectively
 
         params = LWE.Parameters(
             cls.N,
             cls.moduli[-1] * cls.P,
-            Xs=ND.SparseTernary(n=cls.N, p=p, m=m),
+            Xs=ND.SparseTernary(n=cls.N, p=my_plus, m=my_minus),
             Xe=ND.DiscreteGaussian(n=cls.N, stddev=cls.sigma),
         )
         return LWE.primal_usvp(params)["rop"]
@@ -296,8 +296,7 @@ class CKKS:
         """
         Encode a complex vector z into an integer polynomial. This process
         requires applying the inverse of a variant of the DFT matrix, and
-        scaling the result by the factor delta to achieve the necessary
-        precision.
+        scaling the result by the factor p to achieve the necessary precision.
 
         Args:
             z (np.ndarray or np.complex128):
@@ -323,8 +322,8 @@ class CKKS:
         if n == 1:
             # Single value, representing a vector whose entries are
             # identical to this value.
-            a = int(round(cls.delta * real(z)))
-            b = int(round(cls.delta * imag(z)))
+            a = int(round(cls.p * real(z)))
+            b = int(round(cls.p * imag(z)))
             return Poly.get_constant(
                 a, cls.N, cls.moduli[-1]
             ) + b * Poly.get_monomial(cls.N // 2, cls.N, cls.moduli[-1])
@@ -334,7 +333,7 @@ class CKKS:
         w = bit_rev_vector(z, num_bits=log(n, 2))
         for A in grouped_iE:
             w = A.BSGS_mult(w)
-        w *= cls.delta
+        w *= cls.p
 
         pt0_temp = np.round(real(w)).astype(int)
         pt1_temp = np.round(imag(w)).astype(int)
@@ -383,7 +382,7 @@ class CKKS:
         w = pt0.astype(np.complex128) + 1j * pt1.astype(np.complex128)
         for A in grouped_E:
             w = A.BSGS_mult(w)
-        w /= cls.delta
+        w /= cls.p
 
         return bit_rev_vector(w, log(n, 2))
 
@@ -574,7 +573,7 @@ class CKKS:
 
     def rescale(self, l=1):
         """
-        Rescale by dividing by delta**l.
+        Rescale by dividing by p**l.
 
         Args:
             l (int, optional):
@@ -590,7 +589,7 @@ class CKKS:
         """
         if self.l < l:
             raise ValueError("Cannot rescale to a negative level.")
-        divisor = self.delta**l
+        divisor = self.p**l
         q = self.q // divisor
         return self.__class__(
             self.b.divide(divisor, q), self.a.divide(divisor, q)
@@ -823,14 +822,14 @@ class CKKS:
         powers = [0] * (d + 1)
         c = floor(log(d, 2))
 
-        powers[0] = self.enc_poly_without_error(self.delta)
+        powers[0] = self.enc_poly_without_error(self.p)
         powers[1] = self
 
         for i in range(0, c):
-            p = 2**i
-            powers[2 * p] = powers[p] @ powers[p]
-            for j in range(1, min(2 * p, d + 1 - 2 * p)):
-                powers[2 * p + j] = powers[2 * p] @ powers[j]
+            pow_two = 2**i
+            powers[2 * pow_two] = powers[pow_two] @ powers[pow_two]
+            for j in range(1, min(2 * pow_two, d + 1 - 2 * pow_two)):
+                powers[2 * pow_two + j] = powers[2 * pow_two] @ powers[j]
 
         return powers
 
@@ -843,7 +842,7 @@ class CKKS:
             poly_coeffs (list):
                 List of coefficients (Poly instances or integers). These
                 coefficients are assumed to be multiplied by the scaling factor
-                delta already.
+                p already.
 
         Returns:
             CKKS:
@@ -977,7 +976,7 @@ class CKKS:
         """
         Perform a partial trace operation on the underlying plaintext vector,
         from a slots to b slots. Slot i of the resulting vector will be the
-        sum of the slots i, i + b, i + 2b, ... of the original vector.
+        sum of the slots i, i + b, i + 2 * b, ... of the original vector.
 
         Args:
             a (int):
@@ -1018,7 +1017,7 @@ class CKKS:
         """
         Perform a partial product operation on the underlying plaintext vector,
         from a slots to b slots. Slot i of the resulting vector will be the
-        product of the slots i, i + b, i + 2b, ... of the original vector.
+        product of the slots i, i + b, i + 2 * b, ... of the original vector.
 
         Args:
             a (int):
@@ -1130,9 +1129,9 @@ class CKKS:
                 if c > u_max:
                     # Zero diagonal
                     continue
-                p = poly_matrix[c]
-                p = p.galois(5 ** ((-a) % self.n))
-                ct1 = p * rotated_ct[b]
+                my_poly = poly_matrix[c]
+                my_poly = my_poly.galois(5 ** ((-a) % self.n))
+                ct1 = my_poly * rotated_ct[b]
                 ct0 = ct0 + ct1
             ct0 = ct0.rotate(a)
             ct_out += ct0
@@ -1304,8 +1303,8 @@ class CKKS:
 
         if 2 * self.n == self.N:
             # Full slots
-            ct0 = self.delta // 2 * (ct + ct_conj)
-            ct1 = -self.delta // 2 * (1j * (ct - ct_conj))
+            ct0 = self.p // 2 * (ct + ct_conj)
+            ct1 = -self.p // 2 * (1j * (ct - ct_conj))
             return [ct0, ct1]
 
         ct0 = ct + ct_conj
@@ -1321,7 +1320,7 @@ class CKKS:
         Perform homomorphic decoding (slots to coefficients) to obtain a
         ciphertext whose underlying plaintext polynomial has as coefficients
         the values contained in the plaintext vector(s) of the input
-        ciphertext(s), multiplied by the factor delta.
+        ciphertext(s), multiplied by the factor p.
 
         Args:
             cts (tuple):
@@ -1381,15 +1380,15 @@ class CKKS:
             ct += ct_x
         return ct
 
-    def EvalMod(self, p, d, r):
+    def EvalMod(self, M, d, r):
         """
-        Reduce the ciphertext modulo a positive integer p by using a degree d
+        Reduce the ciphertext modulo a positive integer M by using a degree d
         polynomial to approximate the complex exponential function, which is
         then successively squared r times to improve precision, before the
         imaginary part is taken.
 
         Args:
-            p (int):
+            M (int):
                 The modulus to reduce the ciphertext by.
             d (int):
                 Degree of the polynomial used for approximation.
@@ -1398,16 +1397,16 @@ class CKKS:
 
         Returns:
             CKKS:
-                A new ciphertext approximating self reduced modulo p.
+                A new ciphertext approximating self reduced modulo M.
         """
-        f0 = self.encode(2 * self.delta * np.pi * 1j / (2**r * p))
+        f0 = self.encode(2 * self.p * np.pi * 1j / (2**r * M))
         ct0 = (f0 @ self).rescale()
         encoded_coeffs = [self.encode(1 / factorial(k)) for k in range(d + 1)]
         ct1 = ct0.apply_poly(encoded_coeffs)
         for _ in range(r):
             ct1 = ct1 @ ct1
         ct1 = ct1 - ct1.conjugate()
-        f1 = self.encode(p / (4 * np.pi * 1j))
+        f1 = self.encode(M / (4 * np.pi * 1j))
         return f1 @ ct1
 
     def bootstrap(self, s=1, d=7, r=5):
@@ -1444,21 +1443,19 @@ class CKKS:
         if self.n < self.N / 2:
             ct = ct.partial_sum()
             ct = (
-                (self.delta * 2 * self.n // self.N) * ct
+                (self.p * 2 * self.n // self.N) * ct
             ).rescale()  # Remove factor N / (2 * n)
 
         cts = ct.CoeffToSlot(s)  # List of one or two ciphertexts
 
         for i in range(len(cts)):
             cts[i] = (
-                (self.delta**2 // self.q0) * (cts[i].rescale())
+                (self.p**2 // self.q0) * (cts[i].rescale())
             ).rescale()  # Divide by q0
             cts[i] = cts[i].EvalMod(1, d, r)
-            cts[i] = (self.q0 // self.delta) * cts[
-                i
-            ]  # Multiply by q0 // delta
+            cts[i] = (self.q0 // self.p) * cts[i]  # Multiply by q0 // p
 
-        ct = CKKS.SlotToCoeff(cts, s)  # Also removes factor 1 / delta
+        ct = CKKS.SlotToCoeff(cts, s)  # Also removes factor 1 / p
         return ct
 
     # Representation
@@ -1475,7 +1472,7 @@ class CKKS:
         str = [
             f"A CKKS ciphertext with degree N = 2^{log(self.N, 2)} ",
             f"and modulus q = ",
-            f"(2^{log(self.q0,2)}) * (2^{log(self.delta,2)})^{self.l}",
+            f"(2^{log(self.q0,2)}) * (2^{log(self.p,2)})^{self.l}",
             f" (level {self.l} out of {self.L})",
         ]
         return "".join(str)
