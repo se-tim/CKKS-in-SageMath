@@ -448,7 +448,7 @@ class CKKS:
     # Encryption and decryption
 
     @classmethod
-    def enc_poly_with_sk(cls, pt, sk):
+    def enc_poly_with_sk(cls, pt, sk, is_boot=False):
         """
         Encrypt a plaintext polynomial with the secret key.
 
@@ -457,17 +457,25 @@ class CKKS:
                 Plaintext polynomial to encrypt.
             sk (Poly):
                 Secret key.
+            is_boot (bool, optional):
+                Whether the output ciphertext should be used during
+                bootstrapping. Defaults to False.
 
         Returns:
             CKKS:
                 Encrypted ciphertext.
         """
-        cls._check_modulus(pt.q)
-        q = cls.moduli[-1] if pt.q == 0 else pt.q
+        cls._check_modulus(pt.q, is_boot)
+        if pt.q != 0:
+            q = pt.q
+        elif is_boot == False:
+            q = cls.moduli[-1]
+        else:
+            q = cls.moduli_boot[-1]
         e = Poly.get_random_normal(cls.N, q, cls.sigma)
         a = Poly.get_random_uniform(cls.N, q)
         b = pt + e - a * sk
-        return cls(b, a, is_boot=False)
+        return cls(b, a, is_boot)
 
     @classmethod
     def enc_poly_with_pk(cls, pt, pk):
