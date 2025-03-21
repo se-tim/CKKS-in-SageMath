@@ -14,7 +14,7 @@ class CKKS:
     """
 
     @classmethod
-    def config(cls, N, n, L, q0, p):
+    def config(cls, N, n, L_boot, q0, p, delta):
         """
         Configure basic CKKS parameters.
 
@@ -23,18 +23,22 @@ class CKKS:
                 Ring degree (must be a power of two).
             n (int):
                 Number of slots (must be a strict divisor of N).
-            L (int):
-                Maximal level.
+            L_boot (int):
+                Maximal level during bootstrapping.
             q0 (int):
                 Smallest modulus.
             p (int):
                 Scaling factor outside of bootstrapping.
+            delta (int):
+                Scaling factor during bootstrapping.
 
         Raises:
             ValueError:
                 If N is not a power of two.
             ValueError:
                 If n is not a strict divisor of N.
+            ValueError:
+                If p and delta are not powers of the same base.
         """
         # Generating matrices required for encoding and decoding
         get_grouped_E(n, 1, inverse=True)
@@ -44,17 +48,37 @@ class CKKS:
             raise ValueError("N must be a power of two.")
         if N % n != 0 or n >= N:
             raise ValueError("n must be a strict divisor of N.")
+
+        are_same_powers = False
+        for d in divisors(p):
+            if isinstance(log(p, d), (int, Integer)) and isinstance(
+                log(delta, d), (int, Integer)
+            ):
+                are_same_powers = True
+                break
+        if not are_same_powers:
+            raise ValueError("p and delta must be powers of the same base.")
+
         cls.N = N  # Ring degree
         cls.n = n  # Number of slots
-        cls.L = L  # Maximal level
         cls.q0 = q0  # Smallest modulus
         cls.p = p  # Scaling factor outside of bootstrapping
-        cls.moduli = [
-            cls.q0 * cls.p**i for i in range(L + 1)
-        ]  # All ct moduli for the scheme
+        cls.delta = delta  # Scaling factor during bootstrapping
 
-        # Dictionary containing the polynomial versions of the groups of
-        # matrices F_{2n, l} and iF_{2n, l}
+        cls.L = floor(
+            L_boot * log(delta, p)
+        )  # Maximal level outside of bootstrapping
+        cls.L_boot = L_boot  # Maximal level for bootstrapping
+
+        cls.moduli = [
+            cls.q0 * cls.p**i for i in range(cls.L + 1)
+        ]  # The ct moduli used outside of bootstrapping
+        cls.moduli_boot = [
+            cls.q0 * cls.delta**i for i in range(cls.L_boot + 1)
+        ]  # The ct moduli used during bootstrapping
+
+        # Dictionary containing the polynomial versions of the grouped
+        # matrices F_{2 * n, l} and iF_{2 * n, l}
         cls.grouped_poly_F_dict = {}
 
         cls.CtS_StC_poly_dict = (
@@ -79,7 +103,7 @@ class CKKS:
                 Hamming weight equal to h.
             P (int, optional):
                 Factor for the evaluation key modulus. Defaults to the biggest
-                modulus accepted by the scheme, namely cls.moduli[-1].
+                modulus accepted by the scheme, namely cls.moduli_boot[-1].
             sigma (float, optional):
                 Standard deviation for error polynomials. Defaults to 3.2.
 
@@ -99,17 +123,17 @@ class CKKS:
         else:
             cls.h = 2 ** (log(cls.N, 2) // 2 - 1)
 
-        cls.P = cls.moduli[-1] if P is None else P
+        cls.P = cls.moduli_boot[-1] if P is None else P
         cls.sigma = 3.2 if sigma is None else sigma
 
-        q_evk = cls.P * cls.moduli[-1]
+        q_evk = cls.P * cls.moduli_boot[-1]
         if sk is not None:
             cls.sk = sk % q_evk
         else:
             cls.sk = Poly.get_random_ternary1(cls.N, q_evk, cls.h)
 
-        e = Poly.get_random_normal(cls.N, cls.moduli[-1], cls.sigma)
-        pk1 = Poly.get_random_uniform(cls.N, cls.moduli[-1])
+        e = Poly.get_random_normal(cls.N, cls.moduli_boot[-1], cls.sigma)
+        pk1 = Poly.get_random_uniform(cls.N, cls.moduli_boot[-1])
         pk0 = e - pk1 * cls.sk
         cls.pk = (pk0, pk1)
 
@@ -133,7 +157,10 @@ class CKKS:
 
         try:
             security = cls.get_security(sk_is_binary=not (sk_is_ternary))
-            print(f"Estimated security: 2^({log(security,2).n(digits=3)}).")
+            print(
+                f"Estimated security: 2^({log(security,2).n(digits=3)}) "
+                f"operations."
+            )
         except (RuntimeError, TypeError):
             print("Estimated security: very low.")
         print()
@@ -145,7 +172,9 @@ class CKKS:
 
         Raises:
             RuntimeError:
-                If CKKS is not configured or keys have not been generated.
+                If CKKS is not yet configured.
+            RuntimeError:
+                If keys have not yet been generated.
         """
         try:
             cls.N
@@ -174,7 +203,7 @@ class CKKS:
                 Switching key (swk0, swk1).
         """
         cls._check_key_gen()
-        q_evk = cls.P * cls.moduli[-1]
+        q_evk = cls.P * cls.moduli_boot[-1]
         e = Poly.get_random_normal(cls.N, q_evk, cls.sigma)
         swk1 = Poly.get_random_uniform(cls.N, q_evk)  # Slow
         swk0 = e + cls.P * sk_x - swk1 * sk
@@ -197,7 +226,7 @@ class CKKS:
                 Switching key for Galois automorphism.
 
         Raises:
-            TypeError:
+            RuntimeError:
                 If sk is None and the switching key is not already generated.
         """
         k = k % (2 * cls.N)
@@ -205,7 +234,7 @@ class CKKS:
         if k in cls.galois_swk_dict:
             return cls.galois_swk_dict[k]
         if sk is None:
-            raise TypeError("Secret key sk required.")
+            raise RuntimeError("Secret key sk required.")
         sk_x = sk.galois(k)
         swk = cls.get_swk(sk_x, sk)
         cls.galois_swk_dict[k] = swk
@@ -225,7 +254,8 @@ class CKKS:
 
         Returns:
             float:
-                Estimated security level.
+                Logarithm (base 2) of estimated number of operations required
+                to break the scheme.
         """
         (my_plus, my_minus) = (
             (cls.h // 2, cls.h // 2) if sk_is_binary == False else (cls.h, 0)
@@ -233,7 +263,7 @@ class CKKS:
 
         params = LWE.Parameters(
             cls.N,
-            cls.moduli[-1] * cls.P,
+            cls.moduli_boot[-1] * cls.P,
             Xs=ND.SparseTernary(n=cls.N, p=my_plus, m=my_minus),
             Xe=ND.DiscreteGaussian(n=cls.N, stddev=cls.sigma),
         )
@@ -242,23 +272,31 @@ class CKKS:
     # Initialization of ciphertexts
 
     @classmethod
-    def _check_modulus(cls, q):
+    def _check_modulus(cls, q, is_boot=False):
         """
         Check if the current parameters support the given modulus q.
 
         Args:
-            q (int): Modulus to check.
+            q (int):
+                Modulus to check.
+            is_boot (bool, optional):
+                Whether the given modulus q is used during bootstrapping.
+                Defaults to False.
 
         Raises:
             ValueError:
                 If modulus q is not supported by the current CKKS parameters.
         """
-        if q != 0 and q not in cls.moduli:
+        if q == 0:
+            return
+        if (is_boot and q not in cls.moduli_boot) or (
+            not is_boot and q not in cls.moduli
+        ):
             raise ValueError(
                 "Modulus q not supported by current CKKS parameters."
             )
 
-    def __init__(self, b, a):
+    def __init__(self, b, a, is_boot=False):
         """
         Initialize a CKKS ciphertext with tuple (b, a).
 
@@ -267,6 +305,9 @@ class CKKS:
                 Polynomial b.
             a (Poly):
                 Polynomial a.
+            is_boot (bool, optional):
+                Whether the ciphertext is used during bootstrapping.
+                Defaults to False.
 
         Raises:
             ValueError:
@@ -278,30 +319,41 @@ class CKKS:
             raise ValueError("b or a has wrong degree N.")
         if b.q != a.q:
             raise ValueError("b and a have different moduli q.")
+
+        self.is_boot = is_boot
+
         if a.q == 0:
-            q = self.moduli[-1]
+            q = self.moduli_boot[-1] if is_boot else self.moduli[-1]
             self.b, self.a = b % q, a % q
-            self.q = q  # Modulus of ciphertext
-            self.l = self.L  # Level of ciphertext
+            self.q = q
+            self.l = self.L_boot if is_boot else self.L
         else:
-            self._check_modulus(a.q)
+            self._check_modulus(a.q, is_boot)
             self.b, self.a = b, a
             self.q = a.q
-            self.l = self.moduli.index(a.q)  # Level of ciphertext
+            self.l = (
+                self.moduli_boot.index(a.q)
+                if is_boot
+                else self.moduli.index(a.q)
+            )
 
     # Encoding and decoding
 
     @classmethod
-    def encode(cls, z):
+    def encode(cls, z, is_boot=False):
         """
         Encode a complex vector z into an integer polynomial. This process
         requires applying the inverse of a variant of the DFT matrix, and
-        scaling the result by the factor p to achieve the necessary precision.
+        scaling the result by the factor cls.p or cls.delta to achieve the
+        necessary precision.
 
         Args:
             z (np.ndarray or np.complex128):
                 A complex vector (of length 1 if z is an np.complex128) to
                 encode.
+            is_boot (bool, optional):
+                Whether the polynomial is used during bootstrapping. Defaults
+                to False.
 
         Returns:
             Poly:
@@ -319,21 +371,24 @@ class CKKS:
         if cls.N % n != 0 or n >= cls.N:
             raise ValueError("n must be a strict divisor of N.")
 
+        scaling_factor = cls.delta if is_boot else cls.p
+        q = cls.moduli_boot[-1] if is_boot else cls.moduli[-1]
+
         if n == 1:
-            # Single value, representing a vector whose entries are
-            # identical to this value.
-            a = int(round(cls.p * real(z)))
-            b = int(round(cls.p * imag(z)))
-            return Poly.get_constant(
-                a, cls.N, cls.moduli[-1]
-            ) + b * Poly.get_monomial(cls.N // 2, cls.N, cls.moduli[-1])
+            # Single value, representing a vector whose entries are all equal
+            # to this value.
+            a = int(round(scaling_factor * real(z)))
+            b = int(round(scaling_factor * imag(z)))
+            return Poly.get_constant(a, cls.N, q) + b * Poly.get_monomial(
+                cls.N // 2, cls.N, q
+            )
 
         grouped_iE = get_grouped_E(n, 1, inverse=True)
 
         w = bit_rev_vector(z, num_bits=log(n, 2))
         for A in grouped_iE:
             w = A.BSGS_mult(w)
-        w *= cls.p
+        w *= scaling_factor
 
         pt0_temp = np.round(real(w)).astype(int)
         pt1_temp = np.round(imag(w)).astype(int)
@@ -344,10 +399,10 @@ class CKKS:
             pt0[l * i] = pt0_temp[i]
             pt1[l * i] = pt1_temp[i]
 
-        return Poly(np.concatenate((pt0, pt1)), cls.N, cls.moduli[-1])
+        return Poly(np.concatenate((pt0, pt1)), cls.N, q)
 
     @classmethod
-    def decode(cls, pt, n=None):
+    def decode(cls, pt, n=None, is_boot=False):
         """
         Decode an integer polynomial to a complex vector of length n. This
         process is effectively the inverse of the previously described encode
@@ -358,6 +413,9 @@ class CKKS:
                 Integer polynomial to decode.
             n (int, optional):
                 Length of the complex vector. Defaults to cls.n.
+            is_boot (bool, optional):
+                Whether the input polynomial was used during bootstrapping.
+                Defaults to False.
 
         Returns:
             np.ndarray:
@@ -382,7 +440,8 @@ class CKKS:
         w = pt0.astype(np.complex128) + 1j * pt1.astype(np.complex128)
         for A in grouped_E:
             w = A.BSGS_mult(w)
-        w /= cls.p
+        scaling_factor = cls.delta if is_boot else cls.p
+        w /= scaling_factor
 
         return bit_rev_vector(w, log(n, 2))
 
@@ -402,17 +461,13 @@ class CKKS:
         Returns:
             CKKS:
                 Encrypted ciphertext.
-
-        Raises:
-            ValueError:
-                If the modulus of pt is not supported.
         """
         cls._check_modulus(pt.q)
         q = cls.moduli[-1] if pt.q == 0 else pt.q
         e = Poly.get_random_normal(cls.N, q, cls.sigma)
         a = Poly.get_random_uniform(cls.N, q)
         b = pt + e - a * sk
-        return cls(b, a)
+        return cls(b, a, is_boot=False)
 
     @classmethod
     def enc_poly_with_pk(cls, pt, pk):
@@ -428,10 +483,6 @@ class CKKS:
         Returns:
             CKKS:
                 Encrypted ciphertext.
-
-        Raises:
-            ValueError:
-                If the modulus of pt is not supported.
         """
         cls._check_modulus(pt.q)
         q = cls.moduli[-1] if pt.q == 0 else pt.q
@@ -439,30 +490,34 @@ class CKKS:
         e0, e1 = [
             Poly.get_random_normal(cls.N, q, cls.sigma) for _ in range(2)
         ]
-        return cls(pt + v * pk[0] + e0, v * pk[1] + e1)
+        return cls(pt + v * pk[0] + e0, v * pk[1] + e1, is_boot=False)
 
     @classmethod
-    def enc_poly_without_error(cls, pt):
+    def enc_poly_without_error(cls, pt, is_boot=False):
         """
         Encrypt a plaintext polynomial without error (insecure).
 
         Args:
             pt (Poly or int):
                 Plaintext polynomial or integer to encrypt.
+            is_boot (bool, optional):
+                Whether the ciphertext is used during bootstrapping.
+                Defaults to False.
 
         Returns:
             CKKS:
                 Encrypted ciphertext.
         """
+        q = cls.moduli_boot[-1] if is_boot else cls.moduli[-1]
         if isinstance(pt, (int, Integer)):
-            a = Poly.get_constant(0, cls.N, cls.moduli[-1])
-            b = Poly.get_constant(pt, cls.N, cls.moduli[-1])
-            return cls(b, a)
-        cls._check_modulus(pt.q)
-        q = cls.moduli[-1] if pt.q == 0 else pt.q
+            a = Poly.get_constant(0, cls.N, q)
+            b = Poly.get_constant(pt, cls.N, q)
+            return cls(b, a, is_boot)
+        cls._check_modulus(pt.q, is_boot)
+        q = q if pt.q == 0 else pt.q
         a = Poly.get_constant(0, cls.N, q)
         b = pt % q
-        return cls(b, a)
+        return cls(b, a, is_boot)
 
     def dec_to_poly(self, sk):
         """
@@ -478,52 +533,6 @@ class CKKS:
         """
         return self.b + self.a * sk
 
-    # Error computation
-
-    def get_noise(self, z, sk):
-        """
-        Calculate the exact noise in the ciphertext.
-
-        Args:
-            z (np.ndarray):
-                Original complex vector that was encrypted.
-            sk (Poly):
-                Secret key.
-
-        Returns:
-            float:
-                Error between the original vector and the decrypted vector
-                (infinity norm of difference).
-        """
-        pt = self.dec_to_poly(sk)
-        w = CKKS.decode(pt)
-        return np.max(np.abs(z - w))
-
-    def get_precision_bits(self, z, sk):
-        """
-        Calculate the number of correct bits in the ciphertext compared to
-        the original plaintext vector.
-
-        Args:
-            z (np.ndarray):
-                Original plaintext vector.
-            sk (Poly):
-                Secret key.
-
-        Returns:
-            float:
-                The total number of correct bits in the real and imaginary
-                parts combined.
-        """
-        w = z - CKKS.decode(self.dec_to_poly(sk))
-        num_real_bits = -np.log(
-            np.max(np.abs(np.real(w))) / np.max(np.abs(np.real(z)))
-        ) / np.log(2)
-        num_imag_bits = -np.log(
-            np.max(np.abs(np.imag(w))) / np.max(np.abs(np.imag(z)))
-        ) / np.log(2)
-        return num_real_bits + num_imag_bits
-
     # Modular reduction, lifting and rescaling
 
     def __mod__(self, q):
@@ -538,7 +547,7 @@ class CKKS:
             CKKS:
                 Resulting ciphertext.
         """
-        return self.__class__(self.b % q, self.a % q)
+        return self.__class__(self.b % q, self.a % q, self.is_boot)
 
     def __imod__(self, q):
         """
@@ -567,13 +576,15 @@ class CKKS:
             CKKS:
                 Resulting ciphertext.
         """
-        if q is None:
+        if q is None and self.is_boot:
+            q = self.moduli_boot[-1]
+        elif q is None:
             q = self.moduli[-1]
-        return __class__(self.b.lift(q), self.a.lift(q))
+        return __class__(self.b.lift(q), self.a.lift(q), self.is_boot)
 
     def rescale(self, l=1):
         """
-        Rescale by dividing by p**l.
+        Rescale by dividing by self.p**l or self.delta**l.
 
         Args:
             l (int, optional):
@@ -589,11 +600,66 @@ class CKKS:
         """
         if self.l < l:
             raise ValueError("Cannot rescale to a negative level.")
-        divisor = self.p**l
+        divisor = self.delta**l if self.is_boot else self.p**l
         q = self.q // divisor
         return self.__class__(
-            self.b.divide(divisor, q), self.a.divide(divisor, q)
+            self.b.divide(divisor, q), self.a.divide(divisor, q), self.is_boot
         )
+
+    # Ciphertext bootstrapping status management
+
+    def boot_to_nonboot(self):
+        """
+        Transform a ciphertext with is_boot = True to is_boot = False.
+
+        Returns:
+            CKKS:
+                Transformed ciphertext with is_boot = False.
+        """
+        if not self.is_boot:
+            return self
+
+        l = floor(self.l * log(self.delta, self.p))
+        q = self.moduli[l]
+        return self.__class__(self.b % q, self.a % q, is_boot=False)
+
+    def nonboot_to_boot(self, lowest_level=False):
+        """
+        Transform a ciphertext with is_boot = False to is_boot = True.
+
+        Args:
+            lowest_level (bool, optional):
+                Whether to transform the ciphertext to the lowest level.
+                Defaults to False.
+
+        Returns:
+            CKKS:
+                Transformed ciphertext with is_boot = True.
+        """
+        if self.is_boot and not lowest_level:
+            return self
+        if self.is_boot and lowest_level:
+            return self % self.moduli_boot[0]
+        l = 0 if lowest_level else floor(self.l * log(self.p, self.delta))
+        q = self.moduli_boot[l]
+        return self.__class__(self.b % q, self.a % q, is_boot=True)
+
+    def _check_boot_status(self, other):
+        """
+        Check if two ciphertexts have the same bootstrapping status.
+
+        Args:
+            other (CKKS):
+                The other ciphertext to compare with.
+
+        Raises:
+            ValueError:
+                If the ciphertexts do not have the same is_boot status.
+        """
+        if self.is_boot != other.is_boot:
+            raise ValueError(
+                "The ciphertexts do not have the same bootstrapping status."
+            )
 
     # Addition and subtraction
 
@@ -610,8 +676,9 @@ class CKKS:
                 Resulting ciphertext.
         """
         if isinstance(other, (int, Integer, Poly)):
-            return self.__class__(self.b + other, self.a)
-        return self.__class__(self.b + other.b, self.a + other.a)
+            return self.__class__(self.b + other, self.a, self.is_boot)
+        self._check_boot_status(other)
+        return self.__class__(self.b + other.b, self.a + other.a, self.is_boot)
 
     def __radd__(self, other):
         """
@@ -649,7 +716,7 @@ class CKKS:
             CKKS:
                 Negated ciphertext.
         """
-        return self.__class__(-self.b, -self.a)
+        return self.__class__(-self.b, -self.a, self.is_boot)
 
     def __sub__(self, other):
         """
@@ -664,8 +731,9 @@ class CKKS:
                 Resulting ciphertext.
         """
         if isinstance(other, (int, Integer, Poly)):
-            return self.__class__(self.b - other, self.a)
-        return self.__class__(self.b - other.b, self.a - other.a)
+            return self.__class__(self.b - other, self.a, self.is_boot)
+        self._check_boot_status(other)
+        return self.__class__(self.b - other.b, self.a - other.a, self.is_boot)
 
     def __rsub__(self, other):
         """
@@ -710,20 +778,14 @@ class CKKS:
         Returns:
             CKKS:
                 Resulting ciphertext.
-
-        Raises:
-            RuntimeError:
-                If keys have not been generated.
         """
         self._check_key_gen()
         if isinstance(other, (int, Integer, Poly)):
-            return self.__class__(other * self.b, other * self.a)
-        if self == 1j:
-            monomial = Poly.get_monomial(other.N // 2, other.N, other.q)
-            return other * monomial
+            return self.__class__(other * self.b, other * self.a, self.is_boot)
         if other == 1j:
             monomial = Poly.get_monomial(self.N // 2, self.N, self.q)
             return self * monomial
+        self._check_boot_status(other)
         d0 = self.b * other.b
         d1 = self.a * other.b + other.a * self.b
         d2 = self.a * other.a
@@ -731,6 +793,7 @@ class CKKS:
         return self.__class__(
             d0 + (d2_lift * self.evk[0]).divide(self.P, d2.q),
             d1 + (d2_lift * self.evk[1]).divide(self.P, d2.q),
+            self.is_boot,
         )
 
     def __rmul__(self, other):
@@ -842,15 +905,15 @@ class CKKS:
             poly_coeffs (list):
                 List of coefficients (Poly instances or integers). These
                 coefficients are assumed to be multiplied by the scaling factor
-                p already.
+                self.p or self.delta already.
 
         Returns:
             CKKS:
                 Resulting ciphertext.
         """
         if len(poly_coeffs) == 0:
-            return self.enc_poly_without_error(0)
-        ct_out = self.enc_poly_without_error(poly_coeffs[0])
+            return self.enc_poly_without_error(0, self.is_boot)
+        ct_out = self.enc_poly_without_error(poly_coeffs[0], self.is_boot)
         if len(poly_coeffs) == 1:
             return ct_out
         d = len(poly_coeffs) - 1
@@ -880,6 +943,7 @@ class CKKS:
         return self.__class__(
             b + (a_lift * swk[0]).divide(self.P, a.q),
             (a_lift * swk[1]).divide(self.P, a.q),
+            self.is_boot,
         )
 
     def galois(self, k, swk=None):
@@ -910,9 +974,9 @@ class CKKS:
                     "Alice."
                 )
             swk = self.galois_swk_dict[k]
-        return self.__class__(self.b.galois(k), self.a.galois(k)).key_switch(
-            swk
-        )
+        return self.__class__(
+            self.b.galois(k), self.a.galois(k), self.is_boot
+        ).key_switch(swk)
 
     def conjugate(self, swk=None):
         """
@@ -1010,7 +1074,7 @@ class CKKS:
         if swks is None:
             swks = [None] * log_a_over_b
         for l in range(log_a_over_b):
-            self += self.rotate(a // 2 ** (l + 1), swks[l])
+            self += self.rotate(a // 2 ** (l + 1), n=a, swk=swks[l])
         return self
 
     def product(self, a, b, swks=None):
@@ -1058,13 +1122,16 @@ class CKKS:
     # Multiplication by special matrices
 
     @classmethod
-    def get_poly_matrix(cls, A):
+    def get_poly_matrix(cls, A, is_boot=False):
         """
         Encode diagonals of matrix A as polynomials.
 
         Args:
             A (Multidiags):
                 Square matrix whose diagonals are to be encoded.
+            is_boot (bool, optional):
+                Whether the encoded matrix is used during bootstrapping.
+                Defaults to False.
 
         Returns:
             dict:
@@ -1072,13 +1139,14 @@ class CKKS:
 
         Raises:
             ValueError:
-                If size of A does not divide N.
+                If size of A does not divide N / 2.
         """
         if cls.N // 2 % A.n != 0:
             raise ValueError("The matrix size should divide N / 2.")
 
         return {
-            i: cls.encode(A.get_diag(i)) for i in A.get_symm_diag_indices()
+            i: cls.encode(A.get_diag(i), is_boot)
+            for i in A.get_symm_diag_indices()
         }
 
     def BSGS_left_mult(self, poly_matrix):
@@ -1119,9 +1187,9 @@ class CKKS:
             d * j + u_min: self.rotate(d * j + u_min) for j in range(k1)
         }
 
-        ct_out = self.enc_poly_without_error(0)
+        ct_out = self.enc_poly_without_error(0, self.is_boot)
         for i in range(k0):
-            ct0 = self.enc_poly_without_error(0)
+            ct = self.enc_poly_without_error(0, self.is_boot)
             a = d * i * k1
             for j in range(k1):
                 b = d * j + u_min
@@ -1131,10 +1199,9 @@ class CKKS:
                     continue
                 my_poly = poly_matrix[c]
                 my_poly = my_poly.galois(5 ** ((-a) % self.n))
-                ct1 = my_poly * rotated_ct[b]
-                ct0 = ct0 + ct1
-            ct0 = ct0.rotate(a)
-            ct_out += ct0
+                ct += my_poly * rotated_ct[b]
+            ct = ct.rotate(a)
+            ct_out += ct
         return ct_out.rescale()
 
     @classmethod
@@ -1149,7 +1216,8 @@ class CKKS:
                 Dictionary mapping diagonal indices to polynomials.
 
         Returns:
-            list: The list of rotation indices.
+            list:
+                The list of rotation indices.
         """
         U = list(poly_matrix.keys())
         t = len(U)
@@ -1195,13 +1263,16 @@ class CKKS:
             cls.CtS_StC_poly_dict["one_and_i"] = CKKS.encode(
                 np.array(
                     [(1 - 1j) * (i < cls.n) + 1j for i in range(2 * cls.n)]
-                )
+                ),
+                is_boot=True,
             )
             cls.CtS_StC_poly_dict["one_and_zero"] = CKKS.encode(
-                np.array([0.5 * (i < cls.n) for i in range(2 * cls.n)])
+                np.array([0.5 * (i < cls.n) for i in range(2 * cls.n)]),
+                is_boot=True,
             )
             cls.CtS_StC_poly_dict["i_and_zero"] = CKKS.encode(
-                np.array([-0.5 * 1j * (i >= cls.n) for i in range(2 * cls.n)])
+                np.array([-0.5 * 1j * (i >= cls.n) for i in range(2 * cls.n)]),
+                is_boot=True,
             )
 
         if s not in cls.grouped_poly_F_dict:
@@ -1213,8 +1284,12 @@ class CKKS:
             grouped_iF = get_grouped_F(cls.n, s, True)
 
             print("Encoding these matrices as polynomials...")
-            grouped_poly_F = [cls.get_poly_matrix(A) for A in grouped_F]
-            grouped_poly_iF = [cls.get_poly_matrix(A) for A in grouped_iF]
+            grouped_poly_F = [
+                cls.get_poly_matrix(A, is_boot=True) for A in grouped_F
+            ]
+            grouped_poly_iF = [
+                cls.get_poly_matrix(A, is_boot=True) for A in grouped_iF
+            ]
 
             cls.grouped_poly_F_dict[s] = (
                 grouped_poly_F,
@@ -1236,7 +1311,7 @@ class CKKS:
         cls.get_galois_swk(-1, sk)  # For conjugation
 
         for k in range(log(cls.N, 2)):
-            # For partial sum
+            # For trace operator
             cls.get_galois_swk(5 ** (2**k), sk)
 
         print("The bootstrapping configuration is done!\n")
@@ -1267,9 +1342,10 @@ class CKKS:
 
     def CoeffToSlot(self, s=1):
         """
-        Perform homomorphic encoding (coefficients to slots) to obtain
-        ciphertext(s) whose plaintext vector(s) encrypt(s) the coefficients of
-        the initial plaintext polynomial.
+        Perform homomorphic encoding (coefficients to slots) with respect to
+        the scaling factor self.delta, to obtain ciphertext(s) whose plaintext
+        vector(s) encrypt(s) the coefficients of the initial plaintext
+        polynomial.
 
         Args:
             s (int, optional):
@@ -1279,14 +1355,11 @@ class CKKS:
                 CKKS levels.
 
         Returns:
-            tuple or CKKS:
+            list:
                 - If we have full slots (n = N / 2), returns a two element list
                   [ct0, ct1] of ciphertexts.
                 - Otherwise, returns a list [ct] with a single ciphertext.
 
-        Raises:
-            RuntimeError:
-                If config_bootstrap needs to be called first.
         """
         if 2**s > self.n:
             s = log(self.n, 2)
@@ -1295,7 +1368,7 @@ class CKKS:
 
         grouped_poly_iF = self.grouped_poly_F_dict[s][1]
 
-        ct = copy(self)
+        ct = self.nonboot_to_boot()
         for A in grouped_poly_iF:
             ct = ct.BSGS_left_mult(A)
 
@@ -1303,8 +1376,8 @@ class CKKS:
 
         if 2 * self.n == self.N:
             # Full slots
-            ct0 = self.p // 2 * (ct + ct_conj)
-            ct1 = -self.p // 2 * (1j * (ct - ct_conj))
+            ct0 = self.delta // 2 * (ct + ct_conj)
+            ct1 = -self.delta // 2 * (1j * (ct - ct_conj))
             return [ct0, ct1]
 
         ct0 = ct + ct_conj
@@ -1317,10 +1390,11 @@ class CKKS:
     @classmethod
     def SlotToCoeff(cls, cts, s=1):
         """
-        Perform homomorphic decoding (slots to coefficients) to obtain a
-        ciphertext whose underlying plaintext polynomial has as coefficients
-        the values contained in the plaintext vector(s) of the input
-        ciphertext(s), multiplied by the factor p.
+        Perform homomorphic decoding (slots to coefficients) with respect to
+        the scaling factor cls.delta, to obtain a ciphertext whose underlying
+        plaintext polynomial has as coefficients the values contained in the
+        plaintext vector(s) of the input ciphertext(s), multiplied by the
+        factor cls.delta.
 
         Args:
             cts (tuple):
@@ -1336,10 +1410,6 @@ class CKKS:
         Returns:
             CKKS:
                 The desired ciphertext.
-
-        Raises:
-            RuntimeError:
-                If config_bootstrap needs to be called first.
         """
         if 2**s > cls.n:
             s = log(cls.n, 2)
@@ -1363,23 +1433,6 @@ class CKKS:
 
         return ct
 
-    def partial_sum(self):
-        """
-        Return a ciphertext corresponding to summing all slots of the plaintext
-        vector whose indices differ by a multiple of n.
-
-        Returns:
-            CKKS:
-                A new ciphertext where each slot contains the sum of specific
-                slots from the original plaintext vector.
-        """
-        ct = copy(self)
-        l = log(self.N // (2 * self.n), 2)
-        for k in range(l):
-            ct_x = ct.rotate(self.n * 2**k, self.N // 2)
-            ct += ct_x
-        return ct
-
     def EvalMod(self, M, d, r):
         """
         Reduce the ciphertext modulo a positive integer M by using a degree d
@@ -1399,17 +1452,22 @@ class CKKS:
             CKKS:
                 A new ciphertext approximating self reduced modulo M.
         """
-        f0 = self.encode(2 * self.p * np.pi * 1j / (2**r * M))
-        ct0 = (f0 @ self).rescale()
-        encoded_coeffs = [self.encode(1 / factorial(k)) for k in range(d + 1)]
-        ct1 = ct0.apply_poly(encoded_coeffs)
+        scaling_factor = self.delta if self.is_boot else self.p
+        f0 = self.encode(
+            2 * scaling_factor * np.pi * 1j / (2**r * M), self.is_boot
+        )
+        ct = (f0 @ self).rescale()
+        encoded_coeffs = [
+            self.encode(1 / factorial(k), self.is_boot) for k in range(d + 1)
+        ]
+        ct = ct.apply_poly(encoded_coeffs)
         for _ in range(r):
-            ct1 = ct1 @ ct1
-        ct1 = ct1 - ct1.conjugate()
+            ct = ct @ ct
+        ct = ct - ct.conjugate()
         f1 = self.encode(M / (4 * np.pi * 1j))
-        return f1 @ ct1
+        return f1 @ ct
 
-    def bootstrap(self, s=1, d=7, r=5):
+    def bootstrap(self, s=1, d=7, r=7):
         """
         Refresh the ciphertext self by increasing its level.
 
@@ -1423,40 +1481,33 @@ class CKKS:
                 Degree of the polynomial used in EvalMod. Defaults to 7.
             r (int, optional):
                 Number of times the polynomial approximation is squared in
-                EvalMod. Defaults to 5.
+                EvalMod. Defaults to 7.
 
         Returns:
             CKKS:
                 A new ciphertext with increased level.
-
-        Raises:
-            RuntimeError:
-                If config_bootstrap needs to be called first.
         """
         if 2**s > self.n:
             s = log(self.n, 2)
 
         self._check_config_bootstrap(s)
 
-        ct = (self % self.q0).lift()
+        ct = self.nonboot_to_boot(lowest_level=True).lift()
 
-        if self.n < self.N / 2:
-            ct = ct.partial_sum()
+        if 2 * self.n < self.N:
+            ct = ct.trace(self.N // 2, self.n)
             ct = (
-                (self.p * 2 * self.n // self.N) * ct
-            ).rescale()  # Remove factor N / (2 * n)
+                (self.delta * 2 * self.n // self.N) * ct
+            ).rescale()  # Divide by N / (2 * n)
 
         cts = ct.CoeffToSlot(s)  # List of one or two ciphertexts
 
         for i in range(len(cts)):
-            cts[i] = (
-                (self.p**2 // self.q0) * (cts[i].rescale())
-            ).rescale()  # Divide by q0
-            cts[i] = cts[i].EvalMod(1, d, r)
-            cts[i] = (self.q0 // self.p) * cts[i]  # Multiply by q0 // p
+            cts[i] = cts[i].EvalMod(self.q0, d, r)
 
-        ct = CKKS.SlotToCoeff(cts, s)  # Also removes factor 1 / p
-        return ct
+        ct = CKKS.SlotToCoeff(cts, s)
+        ct = ct.boot_to_nonboot()
+        return ct.rescale()  # Divide by p
 
     # Representation
 
@@ -1469,10 +1520,20 @@ class CKKS:
             str:
                 String representation of the ciphertext.
         """
-        str = [
-            f"A CKKS ciphertext with degree N = 2^{log(self.N, 2)} ",
-            f"and modulus q = ",
-            f"(2^{log(self.q0,2)}) * (2^{log(self.p,2)})^{self.l}",
-            f" (level {self.l} out of {self.L})",
-        ]
+        if self.is_boot:
+            str = [
+                f"A CKKS ciphertext for bootstrapping ",
+                f"with degree N = 2^{log(self.N, 2)} ",
+                f"and modulus q = ",
+                f"(2^{log(self.q0,2)}) * (2^{log(self.delta,2)})^{self.l}",
+                f" (level {self.l} out of {self.L_boot}).",
+            ]
+        else:
+            str = [
+                f"A CKKS ciphertext ",
+                f"with degree N = 2^{log(self.N, 2)} ",
+                f"and modulus q = ",
+                f"(2^{log(self.q0,2)}) * (2^{log(self.p,2)})^{self.l}",
+                f" (level {self.l} out of {self.L}).",
+            ]
         return "".join(str)
