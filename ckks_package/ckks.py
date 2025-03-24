@@ -1517,6 +1517,31 @@ class CKKS:
         ct = ct.boot_to_nonboot()
         return ct.rescale()  # Divide by p
 
+    def get_precision(self, other, sk):
+        """
+        Compute the number of bits of precision preserved in the coefficients
+        of the underlying plaintext polynomial of other, relative to self.
+
+        Args:
+            other (CKKS):
+                The ciphertext to compare against self.
+            sk (Poly):
+                Secret key of scheme.
+
+        Returns:
+            float:
+                The number of bits of precision preserved from self to other.
+        """
+        pt = self.dec_to_poly(sk)
+        pt_x = other.dec_to_poly(sk)
+
+        def get_pt_size(pt):
+            coeffs = pt.get_symmetric_coeffs()
+            coeffs = [abs(int(c)) for c in coeffs]
+            return log(max(coeffs), 2).n()
+
+        return get_pt_size(pt) - get_pt_size(pt - pt_x)
+
     # Representation
 
     def __repr__(self):
