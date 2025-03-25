@@ -1517,30 +1517,44 @@ class CKKS:
         ct = ct.boot_to_nonboot()
         return ct.rescale()  # Divide by p
 
-    def get_precision(self, other, sk):
+    def get_poly_precision(self, other, sk, n=None):
         """
-        Compute the number of bits of precision preserved in the coefficients
-        of the underlying plaintext polynomial of other, relative to self.
+        Compute the average number of bits of precision preserved in the
+        coefficients of the underlying plaintext polynomial of other, relative
+        to self.
 
         Args:
             other (CKKS):
                 The ciphertext to compare against self.
             sk (Poly):
                 Secret key of scheme.
-
+            n (int, optional):
+                Number of slots to consider. Defaults to self.n.
         Returns:
             float:
-                The number of bits of precision preserved from self to other.
+                The average number of bits of precision preserved from self to
+                other.
         """
+        if n is None:
+            n = self.n
+
         pt = self.dec_to_poly(sk)
-        pt_x = other.dec_to_poly(sk)
+        e = pt - other.dec_to_poly(sk)
 
-        def get_pt_size(pt):
-            coeffs = pt.get_symmetric_coeffs()
-            coeffs = [abs(int(c)) for c in coeffs]
-            return log(max(coeffs), 2).n()
+        coeffs_pt = pt.get_symmetric_coeffs()
+        coeffs_pt = np.array(
+            [abs(int(coeffs_pt[i * self.N // (2 * n)])) for i in range(2 * n)]
+        )
 
-        return get_pt_size(pt) - get_pt_size(pt - pt_x)
+        coeffs_e = e.get_symmetric_coeffs()
+        coeffs_e = np.array(
+            [abs(int(coeffs_e[i * self.N // (2 * n)])) for i in range(2 * n)]
+        )
+
+        bits_pt = np.log2(np.abs(coeffs_pt) + 1)
+        bits_e = np.log2(np.abs(coeffs_e) + 1)
+
+        return np.mean(bits_pt - bits_e)
 
     # Representation
 
