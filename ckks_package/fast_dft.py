@@ -1,5 +1,4 @@
 import numpy as np
-import pickle
 from sage.all import *
 from .bit_rev import *
 
@@ -286,6 +285,8 @@ class Multidiags:
 
 # Roots of unity
 
+_roots_of_unity_dict = {}
+
 
 def get_roots_of_unity(n):
     """
@@ -306,21 +307,15 @@ def get_roots_of_unity(n):
     if n % 2 != 0:
         raise ValueError("We only compute roots of unity for even n.")
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    folder = os.path.join(script_dir, "Cache", "Roots of Unity")
-    os.makedirs(folder, exist_ok=True)
-
-    file = os.path.join(folder, f"roots_{n}.npy")
-
-    if os.path.exists(file):
-        return np.load(file, allow_pickle=True)
+    if n in _roots_of_unity_dict:
+        return _roots_of_unity_dict[n]
 
     a = 2 * pi * 1j / n
     exponents = np.arange(n // 2)
     roots = np.exp(exponents * a).astype(np.complex128)
     roots = np.concatenate([roots, -roots])
 
-    pickle.dump(roots, open(file, "wb"))
+    _roots_of_unity_dict[n] = roots
     return roots
 
 
@@ -341,6 +336,9 @@ def _check_power_two(n):
     """
     if n & (n - 1) != 0:
         raise ValueError("n must be a power of two.")
+
+
+_E_dict = {}
 
 
 def get_E(n, l, inverse=False):
@@ -370,17 +368,8 @@ def get_E(n, l, inverse=False):
     """
     _check_power_two(n)
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    folder = os.path.join(script_dir, "Cache", "Matrices E")
-    os.makedirs(folder, exist_ok=True)
-
-    if inverse == False:
-        file = os.path.join(folder, f"E_{n}_{l}.npy")
-    else:
-        file = os.path.join(folder, f"iE_{n}_{l}.npy")
-
-    if os.path.exists(file):
-        return np.load(file, allow_pickle=True)
+    if (n, l, inverse) in _E_dict:
+        return _E_dict[(n, l, inverse)]
 
     half_k = 2**l
 
@@ -427,8 +416,11 @@ def get_E(n, l, inverse=False):
     else:
         E = Multidiags(n, {0: diag0, half_k: diag1, -half_k: diag2})
 
-    pickle.dump(E, open(file, "wb"))
+    _E_dict[(n, l, inverse)] = E
     return E
+
+
+_F_dict = {}
 
 
 def get_F(n, l, inverse=False):
@@ -458,17 +450,8 @@ def get_F(n, l, inverse=False):
     """
     _check_power_two(n)
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    folder = os.path.join(script_dir, "Cache", "Matrices F")
-    os.makedirs(folder, exist_ok=True)
-
-    if inverse == False:
-        file = os.path.join(folder, f"F_{n}_{l}.npy")
-    else:
-        file = os.path.join(folder, f"iF_{n}_{l}.npy")
-
-    if os.path.exists(file):
-        return np.load(file, allow_pickle=True)
+    if (n, l, inverse) in _F_dict:
+        return _F_dict[(n, l, inverse)]
 
     half_k = 2**l
 
@@ -512,7 +495,7 @@ def get_F(n, l, inverse=False):
     else:
         F = Multidiags(n, {0: diag0, n_over_k: diag1, -n_over_k: diag2})
 
-    pickle.dump(F, open(file, "wb"))
+    _F_dict[(n, l, inverse)] = F
     return F
 
 
@@ -563,6 +546,9 @@ def group_matrices(matrices, s, right_to_left=False):
     return blocks
 
 
+_grouped_E_dict = {}
+
+
 def get_grouped_E(n, s, inverse=False):
     """
     Group the matrices E_{n, l} or iE_{n, l}:
@@ -585,23 +571,17 @@ def get_grouped_E(n, s, inverse=False):
     """
     _check_power_two(n)
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    folder = os.path.join(script_dir, "Cache", "Grouped Matrices E")
-    os.makedirs(folder, exist_ok=True)
-
-    if inverse == False:
-        file = os.path.join(folder, f"grouped_E_{n}_{s}.npy")
-    else:
-        file = os.path.join(folder, f"grouped_iE_{n}_{s}.npy")
-
-    if os.path.exists(file):
-        return np.load(file, allow_pickle=True)
+    if (n, s, inverse) in _grouped_E_dict:
+        return _grouped_E_dict[(n, s, inverse)]
 
     matrices = [get_E(n, l, inverse) for l in range(log(n, 2))]
     grouped_matrices = group_matrices(matrices, s, inverse)
 
-    pickle.dump(grouped_matrices, open(file, "wb"))
+    _grouped_E_dict[(n, s, inverse)] = grouped_matrices
     return grouped_matrices
+
+
+_grouped_F_dict = {}
 
 
 def get_grouped_F(n, s, inverse=False):
@@ -626,20 +606,11 @@ def get_grouped_F(n, s, inverse=False):
     """
     _check_power_two(n)
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    folder = os.path.join(script_dir, "Cache", "Grouped Matrices F")
-    os.makedirs(folder, exist_ok=True)
-
-    if inverse == False:
-        file = os.path.join(folder, f"grouped_F_{n}_{s}.npy")
-    else:
-        file = os.path.join(folder, f"grouped_iF_{n}_{s}.npy")
-
-    if os.path.exists(file):
-        return np.load(file, allow_pickle=True)
+    if (n, s, inverse) in _grouped_F_dict:
+        return _grouped_F_dict[(n, s, inverse)]
 
     matrices = [get_F(n, l, inverse) for l in range(int(log(n, 2)))]
     grouped_matrices = group_matrices(matrices, s, inverse)
 
-    pickle.dump(grouped_matrices, open(file, "wb"))
+    _grouped_F_dict[(n, s, inverse)] = grouped_matrices
     return grouped_matrices
