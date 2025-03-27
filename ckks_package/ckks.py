@@ -66,7 +66,7 @@ class CKKS:
         cls.delta = delta  # Scaling factor during bootstrapping
 
         cls.L = floor(
-            L_boot * log(delta, p)
+            L_boot * log(delta, p) + 1
         )  # Maximal level outside of bootstrapping
         cls.L_boot = L_boot  # Maximal level for bootstrapping
 
@@ -74,7 +74,7 @@ class CKKS:
             cls.q0 * cls.p**i for i in range(cls.L + 1)
         ]  # The ct moduli used outside of bootstrapping
         cls.moduli_boot = [
-            cls.q0 * cls.delta**i for i in range(cls.L_boot + 1)
+            cls.p * cls.q0 * cls.delta**i for i in range(cls.L_boot + 1)
         ]  # The ct moduli used during bootstrapping
 
         # Dictionary containing the polynomial versions of the grouped
@@ -627,30 +627,24 @@ class CKKS:
         if not self.is_boot:
             return self
 
-        l = floor(self.l * log(self.delta, self.p))
+        l = floor(self.l * log(self.delta, self.p) + 1)
         q = self.moduli[l]
         return self.__class__(self.b % q, self.a % q, is_boot=False)
 
-    def nonboot_to_boot(self, lowest_level=False):
+    def nonboot_to_boot(self):
         """
-        Transform a ciphertext with is_boot = False to is_boot = True.
-
-        Args:
-            lowest_level (bool, optional):
-                Whether to transform the ciphertext to the lowest level.
-                Defaults to False.
+        Transform a ciphertext with is_boot = False to is_boot = True, all
+        while also lifting it to the highest bootstrapping level.
 
         Returns:
             CKKS:
                 Transformed ciphertext with is_boot = True.
         """
-        if self.is_boot and not lowest_level:
+        if self.is_boot:
             return self
-        if self.is_boot and lowest_level:
-            return self % self.moduli_boot[0]
-        l = 0 if lowest_level else floor(self.l * log(self.p, self.delta))
-        q = self.moduli_boot[l]
-        return self.__class__(self.b % q, self.a % q, is_boot=True)
+
+        q = self.moduli_boot[-1]
+        return self.__class__(self.b.lift(q), self.a.lift(q), is_boot=True)
 
     def _check_boot_status(self, other):
         """
@@ -793,6 +787,7 @@ class CKKS:
         if other == 1j:
             monomial = Poly.get_monomial(self.N // 2, self.N, self.q)
             return self * monomial
+
         self._check_boot_status(other)
         d0 = self.b * other.b
         d1 = self.a * other.b + other.a * self.b
@@ -1500,7 +1495,7 @@ class CKKS:
 
         self._check_config_bootstrap(s)
 
-        ct = self.nonboot_to_boot(lowest_level=True).lift()
+        ct = (self % self.q0).nonboot_to_boot()
 
         if 2 * self.n < self.N:
             ct = ct.trace(self.N // 2, self.n)
@@ -1572,7 +1567,8 @@ class CKKS:
                 f"A CKKS ciphertext for bootstrapping ",
                 f"with degree N = 2^{log(self.N, 2)} ",
                 f"and modulus q = ",
-                f"(2^{log(self.q0,2)}) * (2^{log(self.delta,2)})^{self.l}",
+                f"(2^{log(self.p*self.q0,2)}) * ",
+                f"(2^{log(self.delta,2)})^{self.l}",
                 f" (level {self.l} out of {self.L_boot}).",
             ]
         else:
