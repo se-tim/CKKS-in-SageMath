@@ -1263,17 +1263,17 @@ class CKKS:
 
         if not cls.CtS_StC_poly_dict and 2 * cls.n != cls.N:
             print("Encoding relevant vectors as polynomials...")
-            cls.CtS_StC_poly_dict["one_and_i"] = CKKS.encode(
+            cls.CtS_StC_poly_dict["one_and_i"] = cls.encode(
                 np.array(
                     [(1 - 1j) * (i < cls.n) + 1j for i in range(2 * cls.n)]
                 ),
                 is_boot=True,
             )
-            cls.CtS_StC_poly_dict["one_and_zero"] = CKKS.encode(
+            cls.CtS_StC_poly_dict["one_and_zero"] = cls.encode(
                 np.array([0.5 * (i < cls.n) for i in range(2 * cls.n)]),
                 is_boot=True,
             )
-            cls.CtS_StC_poly_dict["i_and_zero"] = CKKS.encode(
+            cls.CtS_StC_poly_dict["i_and_zero"] = cls.encode(
                 np.array([-0.5 * 1j * (i >= cls.n) for i in range(2 * cls.n)]),
                 is_boot=True,
             )
@@ -1459,7 +1459,7 @@ class CKKS:
         f0 = self.encode(
             2 * scaling_factor * np.pi * 1j / (2**r * M), self.is_boot
         )
-        ct = (f0 @ self).rescale()
+        ct = (f0 @ self).rescale()  # Multiply by 2 * pi * 1j / (2**r * M)
         encoded_coeffs = [
             self.encode(1 / factorial(k), self.is_boot) for k in range(d + 1)
         ]
@@ -1508,9 +1508,9 @@ class CKKS:
         for i in range(len(cts)):
             cts[i] = cts[i].EvalMod(self.q0, d, r)
 
-        ct = CKKS.SlotToCoeff(cts, s)
-        ct = ct.boot_to_nonboot()
-        return ct.rescale()  # Divide by p
+        ct = self.SlotToCoeff(cts, s)
+        ct = (self.delta // self.p) @ ct  # Divide by p
+        return ct.boot_to_nonboot()
 
     def get_poly_precision(self, other, sk, n=None):
         """
