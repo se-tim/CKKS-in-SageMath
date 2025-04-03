@@ -14,7 +14,7 @@ class CKKS:
     """
 
     @classmethod
-    def config(cls, N, n, L_boot, q0, p, delta):
+    def config(cls, N, n, L_boot, q0, p, delta, print_messages=True):
         """
         Configure basic CKKS parameters.
 
@@ -85,12 +85,13 @@ class CKKS:
             {}
         )  # Dictionary containing polynomials required for CtS and StC
 
-        print("The CKKS configuration is done!\n")
+        if print_messages:
+            print("The CKKS configuration is done!\n")
 
     # Key generation
 
     @classmethod
-    def key_gen(cls, h=None, sk=None, P=None, sigma=None):
+    def key_gen(cls, h=None, sk=None, P=None, sigma=None, print_messages=True):
         """
         Generate the secret key, public key and evaluation key for the scheme.
 
@@ -103,7 +104,7 @@ class CKKS:
                 Hamming weight equal to h.
             P (int, optional):
                 Factor for the evaluation key modulus. Defaults to the biggest
-                modulus accepted by the scheme, namely cls.moduli_boot[-1].
+                modulus accepted by the scheme.
             sigma (float, optional):
                 Standard deviation for error polynomials. Defaults to 3.2.
 
@@ -153,17 +154,17 @@ class CKKS:
                 if cls.sk.coeffs[i] == -1:
                     sk_is_ternary = True
 
-        print("The key generation is done!")
-
-        try:
-            security = cls.get_security(sk_is_binary=not (sk_is_ternary))
-            print(
-                f"Estimated security: 2^({log(security,2).n(digits=3)}) "
-                f"operations."
-            )
-        except (RuntimeError, TypeError):
-            print("Estimated security: very low.")
-        print()
+        if print_messages:
+            print("The key generation is done!")
+            try:
+                security = cls.get_security(sk_is_binary=not (sk_is_ternary))
+                print(
+                    f"Estimated security: 2^({log(security,2).n(digits=3)}) "
+                    f"operations."
+                )
+            except (RuntimeError, TypeError):
+                print("Estimated security: very low.")
+            print()
 
     @classmethod
     def _check_key_gen(cls):
@@ -344,8 +345,8 @@ class CKKS:
         """
         Encode a complex vector z into an integer polynomial. This process
         requires applying the inverse of a variant of the DFT matrix, and
-        scaling the result by the factor cls.p or cls.delta to achieve the
-        necessary precision.
+        scaling the result by the factor p or delta to achieve the necessary
+        precision.
 
         Args:
             z (np.ndarray or np.complex128):
@@ -592,7 +593,7 @@ class CKKS:
 
     def rescale(self, l=1):
         """
-        Rescale by dividing by self.p**l or self.delta**l.
+        Rescale by dividing by p**l or delta**l.
 
         Args:
             l (int, optional):
@@ -908,7 +909,7 @@ class CKKS:
             poly_coeffs (list):
                 List of coefficients (Poly instances or integers). These
                 coefficients are assumed to be multiplied by the scaling factor
-                self.p or self.delta already.
+                p or delta already.
 
         Returns:
             CKKS:
@@ -1172,12 +1173,12 @@ class CKKS:
         U = list(poly_matrix.keys())
         if 0 not in U:
             raise ValueError("The matrix is not regular.")
-        t = len(U)
-        if t == 1:
+        if len(U) == 1:
             return self @ poly_matrix[0]
         d = U[1] - U[0]
         u_min = min(U)
         u_max = max(U)
+        t = (u_max - u_min) // d + 1
 
         while t & t - 1 != 0:
             # Ensure that t is a power of two
@@ -1186,13 +1187,12 @@ class CKKS:
         k0 = 2 ** floor(half_log_t)
         k1 = 2 ** ceil(half_log_t)
 
-        rotated_ct = {
-            d * j + u_min: self.rotate(d * j + u_min) for j in range(k1)
-        }
+        rotated_ct = {}
 
         ct_out = self.enc_poly_without_error(0, self.is_boot)
         for i in range(k0):
             ct = self.enc_poly_without_error(0, self.is_boot)
+            is_non_zero_term = False
             a = d * i * k1
             for j in range(k1):
                 b = d * j + u_min
@@ -1200,11 +1200,17 @@ class CKKS:
                 if c > u_max:
                     # Zero diagonal
                     continue
-                my_poly = poly_matrix[c]
-                my_poly = my_poly.galois(5 ** ((-a) % self.n))
-                ct += my_poly * rotated_ct[b]
-            ct = ct.rotate(a)
-            ct_out += ct
+                if c in poly_matrix:
+                    is_non_zero_term = True
+                    if b not in rotated_ct:
+                        rotated_ct[b] = self.rotate(b)
+                    my_poly = poly_matrix[c]
+                    my_poly = my_poly.galois(5 ** ((-a) % self.n))
+                    ct += my_poly * rotated_ct[b]
+            if is_non_zero_term:
+                ct = ct.rotate(a)
+                ct_out += ct
+
         return ct_out.rescale()
 
     @classmethod
@@ -1223,9 +1229,14 @@ class CKKS:
                 The list of rotation indices.
         """
         U = list(poly_matrix.keys())
-        t = len(U)
+        if 0 not in U:
+            raise ValueError("The matrix is not regular.")
+        if len(U) == 1:
+            return [0]
         d = U[1] - U[0]
         u_min = min(U)
+        u_max = max(U)
+        t = (u_max - u_min) // d + 1
 
         while t & t - 1 != 0:
             # Ensure that t is a power of two
@@ -1243,26 +1254,27 @@ class CKKS:
     #  Bootstrapping
 
     @classmethod
-    def config_bootstrap(cls, sk, s=1):
+    def config_bootstrap(cls, sk, log_radix=1, print_messages=True):
         """
         Perform precomputations needed for bootstrapping.
 
         Args:
             sk (Poly):
                 Secret key.
-            s (int, optional):
+            log_radix (int, optional):
                 Grouping parameter controlling the trade off between
                 multiplicative depth and number of multiplications during
                 bootstrapping. Defaults to 1; this is fast, but consumes many
                 CKKS levels.
         """
-        if 2**s > cls.n:
-            s = log(cls.n, 2)
+        if 2**log_radix > cls.n:
+            log_radix = log(cls.n, 2)
 
         cls._check_key_gen()
 
         if not cls.CtS_StC_poly_dict and 2 * cls.n != cls.N:
-            print("Encoding relevant vectors as polynomials...")
+            if print_messages:
+                print("Encoding relevant vectors as polynomials...")
             cls.CtS_StC_poly_dict["one_and_i"] = cls.encode(
                 np.array(
                     [(1 - 1j) * (i < cls.n) + 1j for i in range(2 * cls.n)]
@@ -1278,30 +1290,34 @@ class CKKS:
                 is_boot=True,
             )
 
-        if s not in cls.grouped_poly_F_dict:
-            print(
-                "Generating matrices required for CoeffToSlot and "
-                "SlotToCoeff..."
-            )
-            grouped_F = get_grouped_F(cls.n, s, False)
-            grouped_iF = get_grouped_F(cls.n, s, True)
+        if log_radix not in cls.grouped_poly_F_dict:
+            if print_messages:
+                print(
+                    "Generating matrices required for CoeffToSlot and "
+                    "SlotToCoeff..."
+                )
+            grouped_F = get_grouped_F(cls.n, log_radix, False)
+            grouped_iF = get_grouped_F(cls.n, log_radix, True)
 
-            print("Encoding these matrices as polynomials...")
+            if print_messages:
+                print("Encoding these matrices as polynomials...")
             grouped_poly_F = [
                 cls.get_poly_matrix(A, is_boot=True) for A in grouped_F
             ]
             grouped_poly_iF = [
                 cls.get_poly_matrix(A, is_boot=True) for A in grouped_iF
             ]
-
-            cls.grouped_poly_F_dict[s] = (
+            cls.grouped_poly_F_dict[log_radix] = (
                 grouped_poly_F,
                 grouped_poly_iF,
             )
         else:
-            grouped_poly_F, grouped_poly_iF = cls.grouped_poly_F_dict[s]
+            grouped_poly_F, grouped_poly_iF = cls.grouped_poly_F_dict[
+                log_radix
+            ]
 
-        print("Generating missing switching keys...")
+        if print_messages:
+            print("Generating missing switching keys...")
 
         rotation_indices = [] if 2 * cls.n == cls.N else [cls.n]
         for poly_matrix in grouped_poly_F + grouped_poly_iF:
@@ -1317,16 +1333,17 @@ class CKKS:
             # For trace operator
             cls.get_galois_swk(5 ** (2**k), sk)
 
-        print("The bootstrapping configuration is done!\n")
+        if print_messages:
+            print("The bootstrapping configuration is done!\n")
 
     @classmethod
-    def _check_config_bootstrap(cls, s):
+    def _check_config_bootstrap(cls, log_radix):
         """
         Check if the scheme is configured for bootstrapping with the specified
         grouping parameter s.
 
         Args:
-            s (int):
+            log_radix (int):
                 Grouping parameter controlling the trade off between
                 multiplicative depth and number of multiplications during
                 bootstrapping. Defaults to 1; this is fast, but consumes many
@@ -1336,22 +1353,22 @@ class CKKS:
             RuntimeError:
                  If config_bootstrap needs to be called first.
         """
-        if 2**s > cls.n:
-            s = log(cls.n, 2)
-        if s not in cls.grouped_poly_F_dict:
+        if 2**log_radix > cls.n:
+            log_radix = log(cls.n, 2)
+        if log_radix not in cls.grouped_poly_F_dict:
             raise RuntimeError(
                 "Ask Alice to configure the bootstrapping first."
             )
 
-    def CoeffToSlot(self, s=1):
+    def CoeffToSlot(self, log_radix=1):
         """
         Perform homomorphic encoding (coefficients to slots) with respect to
-        the scaling factor self.delta, to obtain ciphertext(s) whose plaintext
+        the scaling factor delta, to obtain ciphertext(s) whose plaintext
         vector(s) encrypt(s) the coefficients of the initial plaintext
         polynomial.
 
         Args:
-            s (int, optional):
+            log_radix (int, optional):
                 Grouping parameter controlling the trade off between
                 multiplicative depth and number of multiplications during
                 CoeffToSlot. Defaults to 1; this is fast, but consumes many
@@ -1364,12 +1381,12 @@ class CKKS:
                 - Otherwise, returns a list [ct] with a single ciphertext.
 
         """
-        if 2**s > self.n:
-            s = log(self.n, 2)
+        if 2**log_radix > self.n:
+            log_radix = log(self.n, 2)
 
-        self._check_config_bootstrap(s)
+        self._check_config_bootstrap(log_radix)
 
-        grouped_poly_iF = self.grouped_poly_F_dict[s][1]
+        grouped_poly_iF = self.grouped_poly_F_dict[log_radix][1]
 
         ct = self.nonboot_to_boot()
         for A in grouped_poly_iF:
@@ -1391,20 +1408,20 @@ class CKKS:
         ]
 
     @classmethod
-    def SlotToCoeff(cls, cts, s=1):
+    def SlotToCoeff(cls, cts, log_radix=1):
         """
         Perform homomorphic decoding (slots to coefficients) with respect to
-        the scaling factor cls.delta, to obtain a ciphertext whose underlying
+        the scaling factor delta, to obtain a ciphertext whose underlying
         plaintext polynomial has as coefficients the values contained in the
         plaintext vector(s) of the input ciphertext(s), multiplied by the
-        factor cls.delta.
+        factor delta.
 
         Args:
             cts (tuple):
                 - If we have full slots (n = N / 2), cts is a list [ct0, ct1]
                   of ciphertexts.
                 - Otherwise, cts is a list [ct] of a single ciphertext.
-            s (int, optional):
+            log_radix (int, optional):
                 Grouping parameter controlling the trade off between
                 multiplicative depth and number of multiplications during
                 SlotToCoeff. Defaults to 1; this is fast, but consumes many
@@ -1414,12 +1431,12 @@ class CKKS:
             CKKS:
                 The desired ciphertext.
         """
-        if 2**s > cls.n:
-            s = log(cls.n, 2)
+        if 2**log_radix > cls.n:
+            log_radix = log(cls.n, 2)
 
-        cls._check_config_bootstrap(s)
+        cls._check_config_bootstrap(log_radix)
 
-        grouped_poly_F = cls.grouped_poly_F_dict[s][0]
+        grouped_poly_F = cls.grouped_poly_F_dict[log_radix][0]
 
         if 2 * cls.n == cls.N:
             # Full slots
@@ -1470,12 +1487,12 @@ class CKKS:
         f1 = self.encode(M / (4 * np.pi * 1j))
         return f1 @ ct
 
-    def bootstrap(self, s=1, d=7, r=7):
+    def bootstrap(self, log_radix=1, d=7, r=7):
         """
         Refresh the ciphertext self by increasing its level.
 
         Args:
-            s (int, optional):
+            log_radix (int, optional):
                 Grouping parameter controlling the trade off between
                 multiplicative depth and number of multiplications during
                 bootstrapping. Defaults to 1; this is fast, but consumes many
@@ -1490,10 +1507,10 @@ class CKKS:
             CKKS:
                 A new ciphertext with increased level.
         """
-        if 2**s > self.n:
-            s = log(self.n, 2)
+        if 2**log_radix > self.n:
+            log_radix = log(self.n, 2)
 
-        self._check_config_bootstrap(s)
+        self._check_config_bootstrap(log_radix)
 
         ct = (self % self.q0).nonboot_to_boot()
 
@@ -1503,12 +1520,12 @@ class CKKS:
                 (self.delta * 2 * self.n // self.N) * ct
             ).rescale()  # Divide by N / (2 * n)
 
-        cts = ct.CoeffToSlot(s)  # List of one or two ciphertexts
+        cts = ct.CoeffToSlot(log_radix)  # List of one or two ciphertexts
 
         for i in range(len(cts)):
             cts[i] = cts[i].EvalMod(self.q0, d, r)
 
-        ct = self.SlotToCoeff(cts, s)
+        ct = self.SlotToCoeff(cts, log_radix)
         ct = (self.delta // self.p) @ ct  # Divide by p
         return ct.boot_to_nonboot()
 
@@ -1525,6 +1542,7 @@ class CKKS:
                 Secret key of scheme.
             n (int, optional):
                 Number of slots to consider. Defaults to self.n.
+
         Returns:
             float:
                 The average number of bits of precision preserved from self to
