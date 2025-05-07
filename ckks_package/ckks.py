@@ -200,7 +200,7 @@ class CKKS:
         return (swk0, swk1)
 
     @classmethod
-    def get_galois_swk(cls, k, sk=None):
+    def get_galois_swk(cls, k, sk=None, q=None, P=None):
         """
         Get switching key for applying Galois automorphism.
 
@@ -210,6 +210,10 @@ class CKKS:
             sk (Poly, optional):
                 Secret key. Required if the switching key is not already
                 generated.
+            q (int, optional):
+                Biggest modulus for the switching key.
+            P (int, optional):
+                Extra factor added to the modulus.
 
         Returns:
             tuple:
@@ -226,7 +230,7 @@ class CKKS:
         if sk is None:
             raise RuntimeError("Secret key sk required.")
         sk_x = sk.galois(k)
-        swk = cls.get_swk(sk_x, sk)
+        swk = cls.get_swk(sk_x, sk, q, P)
         cls.galois_swk_dict[k] = swk
         return swk
 
