@@ -345,9 +345,9 @@ def get_E(n, l, inverse=False):
     """
     Get the matrix E_{n, l} or iE_{n, l} for 2**l < n:
     - The product E_{n, 0} * E_{n, 1} * ... is a variant of the DFT matrix.
-      After left multiplying by it, the result is given in bit reversed order.
+      After left multiplying by it, the result is given in bit-reversed order.
     - The product ... * iE_{n, 1} * iE_{n, 0} is a variant of the inverse
-      DFT matrix. One should only left multiply vectors given in bit reversed
+      DFT matrix. One should only left multiply vectors given in bit-reversed
       order by it.
 
     Args:
@@ -427,7 +427,7 @@ def get_F(n, l, inverse=False):
     """
     Get the matrix F_{n, l} or iF_{n, l} for 2**l < n:
     - The product F_{n, 0} * F_{n, 1} * ... is a variant of the DFT matrix.
-      One should only left multiply vectors given in bit reversed order by it.
+      One should only left multiply vectors given in bit-reversed order by it.
     - The product ... * iF_{n, 1} * iF_{n, 0} is a variant of the inverse
       DFT matrix. After left multiplying by it, the result is given in bit
       reversed order.

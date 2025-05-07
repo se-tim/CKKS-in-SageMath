@@ -31,6 +31,8 @@ class CKKS:
                 Scaling factor outside of bootstrapping.
             delta (int):
                 Scaling factor during bootstrapping.
+            print_messages (bool, optional):
+                Whether to print information messages. Defaults to True.
 
         Raises:
             ValueError:
@@ -91,22 +93,21 @@ class CKKS:
     # Key generation
 
     @classmethod
-    def key_gen(cls, h=None, sk=None, P=None, sigma=None, print_messages=True):
+    def key_gen(cls, h=None, P=None, sigma=None, print_messages=True):
         """
         Generate the secret key, public key and evaluation key for the scheme.
 
         Args:
             h (int, optional):
                 Hamming weight of the secret key. Defaults to
-                2 ** (log(N, 2) // 2 - 1) if neither h nor sk are passed.
-            sk (Poly, optional):
-                Secret key for scheme. Defaults to a ternary polynomial of
-                Hamming weight equal to h.
+                2 ** (log(N, 2) // 2 - 1) if h is not passed.
             P (int, optional):
-                Factor for the evaluation key modulus. Defaults to the biggest
-                modulus accepted by the scheme.
+                Extra factor added to the evaluation key modulus. Defaults to
+                the biggest modulus accepted by the scheme.
             sigma (float, optional):
                 Standard deviation for error polynomials. Defaults to 3.2.
+            print_messages (bool, optional):
+                Whether to print information messages. Defaults to True.
 
         Raises:
             RuntimeError:
@@ -117,9 +118,7 @@ class CKKS:
         except AttributeError:
             raise RuntimeError("Ask Alice to configure CKKS first.")
 
-        if sk is not None:
-            cls.h = sum(sk.coeffs[i] != 0 for i in range(cls.N))
-        elif h is not None:
+        if h is not None:
             cls.h = h
         else:
             cls.h = 2 ** (log(cls.N, 2) // 2 - 1)
@@ -128,10 +127,7 @@ class CKKS:
         cls.sigma = 3.2 if sigma is None else sigma
 
         q_evk = cls.P * cls.moduli_boot[-1]
-        if sk is not None:
-            cls.sk = sk % q_evk
-        else:
-            cls.sk = Poly.get_random_ternary1(cls.N, q_evk, cls.h)
+        cls.sk = Poly.get_random_ternary1(cls.N, q_evk, cls.h)
 
         e = Poly.get_random_normal(cls.N, cls.moduli_boot[-1], cls.sigma)
         pk1 = Poly.get_random_uniform(cls.N, cls.moduli_boot[-1])
@@ -145,26 +141,8 @@ class CKKS:
 
         cls.galois_swk_dict = {}  # Dictionary containing the swk for Galois
 
-        # Check if the secret key is ternary; else it is binary
-        if sk is None:
-            sk_is_ternary = True
-        else:
-            sk_is_ternary = False
-            for i in range(cls.N):
-                if cls.sk.coeffs[i] == -1:
-                    sk_is_ternary = True
-
         if print_messages:
-            print("The key generation is done!")
-            try:
-                security = cls.get_security(sk_is_binary=not (sk_is_ternary))
-                print(
-                    f"Estimated security: 2^({log(security,2).n(digits=3)}) "
-                    f"operations."
-                )
-            except (RuntimeError, TypeError):
-                print("Estimated security: very low.")
-            print()
+            print("The key generation is done!\n")
 
     @classmethod
     def _check_key_gen(cls):
@@ -189,7 +167,7 @@ class CKKS:
             raise RuntimeError("Ask Alice to generate the keys first.")
 
     @classmethod
-    def get_swk(cls, sk_x, sk):
+    def get_swk(cls, sk_x, sk, q=None, P=None):
         """
         Generate a switching key to switch from secret key sk_x to sk.
 
@@ -198,16 +176,27 @@ class CKKS:
                 Secret key to switch from.
             sk (Poly):
                 Secret key to switch to.
+            q (int, optional):
+                Biggest modulus for the switching key. Defaults to the largest
+                modulus supported by the scheme.
+            P (int, optional):
+                Extra factor added to the modulus. Defaults to cls.P.
 
         Returns:
             tuple:
                 Switching key (swk0, swk1).
         """
         cls._check_key_gen()
-        q_evk = cls.P * cls.moduli_boot[-1]
+
+        if q is None:
+            q = cls.moduli_boot[-1]
+        if P is None:
+            P = cls.P
+
+        q_evk = q * P
         e = Poly.get_random_normal(cls.N, q_evk, cls.sigma)
         swk1 = Poly.get_random_uniform(cls.N, q_evk)  # Slow
-        swk0 = e + cls.P * sk_x - swk1 * sk
+        swk0 = e + P * sk_x - swk1 * sk
         return (swk0, swk1)
 
     @classmethod
@@ -244,31 +233,62 @@ class CKKS:
     # Security estimation
 
     @classmethod
-    def get_security(cls, sk_is_binary=False):
+    def get_security(
+        cls, N=None, q=None, sigma=None, sk_plus=None, sk_minus=None
+    ):
         """
-        Use the LWE estimator to compute the security level based on the
-        current CKKS parameters.
+        Use the LWE estimator to compute the security level.
 
         Args:
-            sk_is_binary (bool):
-                Whether the secret key is binary. Defaults to False.
+            N (int, optional):
+                Ring degree. Defaults to cls.N.
+            q (int, optional):
+                Largest modulus. Defaults to the largest modulus supported by
+                the scheme.
+            sigma (float, optional):
+                Standard deviation for error polynomials. Defaults to
+                cls.sigma.
+            sk_plus (int, optional):
+                Number of coefficients equal to 1 in the secret key. Defaults
+                to the number of coefficients equal to 1 in cls.sk.
+            sk_minus (int, optional):
+                Number of coefficients equal to -1 in the secret key. Defaults
+                to the number of coefficients equal to -1 in cls.sk.
 
         Returns:
             float:
                 Logarithm (base 2) of estimated number of operations required
                 to break the scheme.
         """
-        (my_plus, my_minus) = (
-            (cls.h // 2, cls.h // 2) if sk_is_binary == False else (cls.h, 0)
-        )  # Number of coefficients in sk equal to +1 and -1, respectively
+        if None in (N, q, sigma, sk_plus, sk_minus):
+            cls._check_key_gen()
+
+        if N is None:
+            N = cls.N
+        if q is None:
+            q = cls.moduli_boot[-1] * cls.P
+        if sigma is None:
+            sigma = cls.sigma
+        if sk_plus is None or sk_minus is None:
+            sk_plus = 0
+            sk_minus = 0
+            for i in range(cls.N):
+                sk_plus += cls.sk.coeffs[i] == 1
+                sk_minus += cls.sk.coeffs[i] == -1
 
         params = LWE.Parameters(
-            cls.N,
-            cls.moduli_boot[-1] * cls.P,
-            Xs=ND.SparseTernary(n=cls.N, p=my_plus, m=my_minus),
-            Xe=ND.DiscreteGaussian(n=cls.N, stddev=cls.sigma),
+            N,
+            q,
+            Xs=ND.SparseTernary(n=N, p=sk_plus, m=sk_minus),
+            Xe=ND.DiscreteGaussian(n=N, stddev=sigma),
         )
-        return LWE.primal_usvp(params)["rop"]
+
+        s0 = LWE.dual(params)["rop"]
+        s1 = LWE.dual_hybrid(params)["rop"]
+        s2 = LWE.primal_usvp(params)["rop"]
+        s3 = LWE.primal_hybrid(params)["rop"]
+
+        return log(min(s0, s1, s2, s3), 2)
 
     # Initialization of ciphertexts
 
@@ -928,25 +948,29 @@ class CKKS:
 
     # Galois
 
-    def key_switch(self, swk):
+    def key_switch(self, swk, P=None):
         """
         Switch keys using the provided switching key.
 
         Args:
             swk (tuple):
                 Switching key (swk0, swk1).
+            P (int, optional):
+                Extra factor added to the modulus. Defaults to cls.P.
 
         Returns:
             CKKS:
                 Resulting ciphertext.
         """
         self._check_key_gen()
+        if P is None:
+            P = self.P
         b = self.b
         a = self.a
-        a_lift = a.lift(a.q * self.P)
+        a_lift = a.lift(a.q * P)
         return self.__class__(
-            b + (a_lift * swk[0]).divide(self.P, a.q),
-            (a_lift * swk[1]).divide(self.P, a.q),
+            b + (a_lift * swk[0]).divide(P, a.q),
+            (a_lift * swk[1]).divide(P, a.q),
             self.is_boot,
         )
 
@@ -1266,6 +1290,9 @@ class CKKS:
                 multiplicative depth and number of multiplications during
                 bootstrapping. Defaults to 1; this is fast, but consumes many
                 CKKS levels.
+            print_messages (bool, optional):
+                Whether to print information messages. Defaults to True.
+
         """
         if 2**log_radix > cls.n:
             log_radix = log(cls.n, 2)

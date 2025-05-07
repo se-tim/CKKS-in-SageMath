@@ -4,7 +4,7 @@ from sage.all import *
 
 def bit_rev(i, num_bits):
     """
-    Bit reverse i.
+    Bit-reverse i.
 
     Args:
         i (int):
@@ -14,7 +14,7 @@ def bit_rev(i, num_bits):
 
     Returns:
         int:
-            The bit reversed integer.
+            The bit-reversed integer.
     """
     rev = 0
     for _ in range(num_bits):
@@ -25,18 +25,18 @@ def bit_rev(i, num_bits):
 
 def bit_rev_vector(z, num_bits=None):
     """
-    Rearrange the entries of a vector into bit reversed order.
+    Rearrange the entries of a vector into bit-reversed order.
 
     Args:
         z (np.ndarray):
             The input vector whose entries should be rearranged.
         num_bits (int, optional):
-            The number of bits considered for bit reversal. Defaults to
+            The number of bits considered for bit-reversal. Defaults to
             log(len(z), 2).
 
     Returns:
         np.ndarray:
-            A new vector with entries rearranged in bit reversed order.
+            A new vector with entries rearranged in bit-reversed order.
     """
     if num_bits is None:
         num_bits = log(len(z), 2)
