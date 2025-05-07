@@ -5,14 +5,6 @@ from .fast_dft import *
 
 
 class CKKS:
-    """
-    CKKS Homomorphic Encryption Scheme.
-
-    This class implements the CKKS homomorphic encryption scheme, including key
-    generation, encryption, decryption, homomorphic operations, and supports
-    bootstrapping.
-    """
-
     @classmethod
     def config(cls, N, n, L_boot, q0, p, delta, print_messages=True):
         """
