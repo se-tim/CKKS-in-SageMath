@@ -266,6 +266,9 @@ class CKKS:
             sk_minus (int, optional):
                 Number of coefficients equal to -1 in the secret key. Defaults
                 to the number of coefficients equal to -1 in cls.sk.
+            check_primal_hybrid (bool, optional):
+                Whether to check the primal hybrid security level. Defaults
+                to False.
 
         Returns:
             float:
