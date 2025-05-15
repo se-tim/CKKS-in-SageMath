@@ -272,6 +272,39 @@ class Multidiags:
             z += z0
         return z
 
+    def incorporate_vector(self, w):
+        """
+        Incorporate a vector into the matrix by taking the Hadamard product
+        of each diagonal with the vector.
+
+        Args:
+            w (np.ndarray):
+                The vector to incorporate.
+
+        Returns:
+            Multidiags:
+                The resulting matrix after incorporating the vector.
+        """
+        self._check_vector_size(w)
+        A = self.__class__(self.n, {0: w})
+        return self * A
+
+    def incorporate_scalar(self, scalar):
+        """
+        Incorporate a scalar into the matrix by multiplying each entry by the
+        scalar.
+
+        Args:
+            scalar (float):
+                The scalar to incorporate.
+
+        Returns:
+            Multidiags:
+                The resulting matrix after incorporating the scalar.
+        """
+        w = np.array([scalar] * self.n)
+        return self.incorporate_vector(w)
+
     def __repr__(self):
         """
         Return a string representation of the matrix.
@@ -512,7 +545,7 @@ def group_matrices(matrices, s, right_to_left=False):
         matrices (list):
             List of Multidiags matrices to group.
         s (int):
-            Block size.
+            Block size for matrix grouping.
         right_to_left (bool, optional):
             Direction of multiplication. Defaults to False.
 
@@ -561,7 +594,7 @@ def get_grouped_E(n, s, inverse=False):
         n (int):
             The size parameter (must be a power of two).
         s (int):
-            Block size.
+            Block size for matrix grouping.
         inverse (bool, optional):
             Whether to compute the inverse matrices. Defaults to False.
 
@@ -596,7 +629,7 @@ def get_grouped_F(n, s, inverse=False):
         n (int):
             The size parameter (must be a power of two).
         s (int):
-            Block size.
+            Block size for matrix grouping.
         inverse (bool, optional):
             Whether to compute the inverse matrices. Defaults to False.
 
