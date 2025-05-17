@@ -1,6 +1,7 @@
-import numpy as np
-from sage.all import *
+from sage.all import factor, gcd, Integer, ntl
 from sage.libs.ntl.ntl_ZZ_p import ntl_ZZ_p_random_element
+from sage.libs.ntl.ntl_ZZX import ntl_ZZX
+import numpy as np
 
 
 class Poly:
@@ -75,7 +76,7 @@ class Poly:
             return ntl.ZZX(coeffs) if q == 0 else ntl.ZZ_pX(coeffs, q)
         input_q = (
             0
-            if isinstance(coeffs, sage.libs.ntl.ntl_ZZX.ntl_ZZX)
+            if isinstance(coeffs, ntl_ZZX)
             else coeffs.get_modulus_context().modulus()
         )
         if input_q == q:
@@ -372,7 +373,7 @@ class Poly:
 
     def __iadd__(self, other):
         """
-        Add another polynomial or integer, in place.
+        Add another polynomial or integer, in-place.
 
         Args:
             other (Poly or int):
@@ -426,7 +427,7 @@ class Poly:
 
     def __isub__(self, other):
         """
-        Subtract another polynomial or integer, in place.
+        Subtract another polynomial or integer, in-place.
 
         Args:
             other (Poly or int):
@@ -503,7 +504,7 @@ class Poly:
 
         Args:
             other (Poly or int):
-                The polynomial or integer to right multiply with.
+                The polynomial or integer to right-multiply with.
 
         Returns:
             Poly:
@@ -513,7 +514,7 @@ class Poly:
 
     def __imul__(self, other):
         """
-        Multiply with another polynomial or integer, in place.
+        Multiply with another polynomial or integer, in-place.
 
         Args:
             other (Poly or int):
@@ -601,7 +602,7 @@ class Poly:
         if self.q == 0:
             coeffs = np.empty(self.N, dtype=object)
             for i in range(self.N):
-                value = ZZ(self.coeffs[i])
+                value = int(self.coeffs[i])
                 value //= divisor
                 coeffs[i] = value
             return self.__class__(coeffs, self.N, self.q if q is None else q)
@@ -616,7 +617,7 @@ class Poly:
             coeffs = np.empty(self.N, dtype=object)
             q_half = self.q // 2
             for i in range(self.N):
-                value = ZZ(self.coeffs[i])
+                value = int(self.coeffs[i])
                 if value > q_half:
                     value -= self.q
                 value //= divisor

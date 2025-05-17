@@ -1,12 +1,14 @@
 
 # CKKS in SageMath
-A CKKS implementation in SageMath which supports basic bootstrapping.
 
-This repository provides a SageMath implementation of the CKKS homomorphic encryption scheme [2],
+This repository provides a SageMath implementation
+of the CKKS homomorphic encryption scheme [2],
 designed for efficient approximate computations on encrypted data.
-CKKS is particularly suited for applications involving complex numbers and approximate arithmetic.
+CKKS is particularly suited for applications
+involving complex numbers and approximate arithmetic.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Installation](#installation)
 - [Repository Structure](#files-and-structure)
@@ -26,8 +28,10 @@ This SageMath implementation is based on these papers.
 
 ## Installation
 
-1. **Prerequisites**: Ensure you have SageMath 10.0 or higher installed.
-You can download it from the [SageMath website](https://www.sagemath.org/download.html).
+1. **Prerequisites**:
+Ensure you have SageMath 10.0 or higher installed.
+You can download it from the
+[SageMath website](https://www.sagemath.org/download.html).
    
 2. **Clone the repository**:
    ```bash
@@ -35,7 +39,8 @@ You can download it from the [SageMath website](https://www.sagemath.org/downloa
    cd CKKS-in-SageMath
    ```
 
-3. **Initialize the submodules**: If you intend to use this CKKS implementation as a package,
+3. **Initialize the submodules**:
+If you intend to use this CKKS implementation as a package,
 you must ensure all submodules are correctly initialized,
 as explained here:
 [Git submodule inside of a submodule (nested submodules)](https://stackoverflow.com/q/1535524).
@@ -46,42 +51,71 @@ Therefore, run the following command inside the cloned repository:
 
 ## Repository Structure
 
-- **`ckks_package/`**: The main package containing all implementations related to the CKKS scheme.
+- **`ckks_package/`**:
+The main package containing all implementations related to the CKKS scheme:
 
-  - **`bit_rev.py`**: Implements functions for bit reversal operations.
+  - **`bit_rev.py`**:
+  Implements functions for bit-reversal operations.
 
-  - **`ckks.py`**: Contains the CKKS class,
+  - **`ckks.py`**:
+  Contains the CKKS class,
   implementing key aspects of the CKKS scheme,
   including homomorphic arithmetic [2] and bootstrapping [3].
 
-  - **`fast_dft.py`**: Implements a version of the Discrete Fourier Transform [4],
+  - **`fast_dft.py`**:
+  Implements a version of the Discrete Fourier Transform [4],
   essential for encoding and decoding complex vectors in CKKS.
   It is also required for the CoeffToSlot and SlotToCoeff transformations,
   both of which are necessary for bootstrapping in CKKS.
 
-  - **`poly.py`**: Manages polynomial operations required for CKKS.
+  - **`poly.py`**:
+  Manages polynomial operations required for CKKS.
 
-  - **`lattice_estimator/`**: This is a submodule.
+  - **`lattice_estimator/`**:
+  This is a submodule.
   It is a tool for security estimation in the context of RLWE and LWE [1].
   Make sure that this is initialized correctly,
   as described in the section [Installation](#installation).
 
-- **`test.ipynb`**: A Jupyter notebook demonstrating the CKKS functionality with examples.  
+- **`test.py`**
+ A script demonstrating the main CKKS functionality.
 
 ## Usage
 
-The `test.ipynb` notebook demonstrates the key components of the CKKS scheme, including:
+The `test.py` script demonstrates the key components of the CKKS scheme
+through a linear sequence of operations:
 
-1. **Configuration**: Set CKKS parameters.
-2. **Key Generation**: Generate keys for encryption and decryption.
-3. **Encoding and Encryption**: Encode complex vectors into polynomials and encrypt them.
-4. **Decryption and Decoding**: Verify encryption by decrypting and decoding ciphertexts.
-5. **Homomorphic Operations**: Perform addition and multiplication on ciphertexts,
-and verify the results.
-6. **Bootstrapping**: Refresh a ciphertext to raise its level,
-and verify the result.
+1. **Parameter configuration**:
+Choose default parameters or manually input your own
+for ring degree, number of slots, maximal level,
+base modulus, and scaling factors.
 
-Run the notebook cells sequentially to see these operations in action.
+2. **Key generation**:
+Generate secret, public and evaluation keys.
+
+3. **Security estimation**:
+Estimate the security level of the current parameter set.
+By default, the primal hybrid security level is not estimated (to save time).
+
+4. **Encryption**:
+Encrypt random complex vectors.
+
+5. **Homomorphic operations**:
+Perform homomorphic addition and multiplication on the ciphertexts.
+
+6. **Bootstrapping**:
+Refresh a ciphertext at lowest level through bootstrapping.
+
+7. **Precision measurement**:
+Evaluate the precision loss introduced during bootstrapping.
+
+To run the script,
+make sure you are in the root directory of the repository,
+then execute:
+```bash
+sage test.py
+```
+It will output step-by-step progress and results directly to the terminal.
 
 ## License
 
@@ -90,22 +124,20 @@ See `LICENSE` for more details.
 
 ## References
 
-1. Martin R. Albrecht, Rachel Player, & Sam Scott.
-*On the Concrete Hardness of Learning with Errors*.
-Journal of Mathematical Cryptology, Volume 9, Issue 3, Pages 169–203, 2015.
-[doi:10.1515/jmc-2015-0016](https://doi.org/10.1515/jmc-2015-0016)
+1. Martin Albrecht, Rachel Player, and Sam Scott.
+On the Concrete Hardness of Learning with Errors.
+*Journal of Mathematical Cryptology*, 9, 2015.
 
-2. Jung Hee Cheon, Andrey Kim, Miran Kim, & Yongsoo Song.
-*Homomorphic Encryption for Arithmetic of Approximate Numbers*.
-Cryptology ePrint Archive, Paper 2016/421, 2016.
-[https://eprint.iacr.org/2016/421](https://eprint.iacr.org/2016/421)
+2. Jung Hee Cheon, Dongwoo Kim, Duhyeong Kim, and Yongsoo Song.
+Homomorphic Encryption for Approximate Numbers.
+In *Advances in Cryptology – ASIACRYPT 2017*.
+Springer, 2017.
 
-3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, & Yongsoo Song.
-*Bootstrapping for Approximate Homomorphic Encryption*.
-Cryptology ePrint Archive, Paper 2018/153, 2018.
-[https://eprint.iacr.org/2018/153](https://eprint.iacr.org/2018/153)
+3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, and Yongsoo Song.
+Bootstrapping for Approximate Homomorphic Encryption.
+In *Advances in Cryptology – EUROCRYPT 2018*.
+Springer, 2018.
 
-4. Jung Hee Cheon, Kyoohyung Han, & Minki Hhan.
-*Faster Homomorphic Discrete Fourier Transforms and Improved FHE Bootstrapping*.
-Cryptology ePrint Archive, Paper 2018/1073, 2018.
-[https://eprint.iacr.org/2018/1073](https://eprint.iacr.org/2018/1073)
+4. Jung Hee Cheon, Kyoohyung Han, and Minki Hhan.
+*Improved Homomorphic Discrete Fourier Transforms and FHE Bootstrapping*.
+IEEE Access, 7, 2019.

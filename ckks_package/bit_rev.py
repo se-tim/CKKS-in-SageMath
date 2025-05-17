@@ -1,5 +1,5 @@
+from sage.all import log
 import numpy as np
-from sage.all import *
 
 
 def bit_rev(i, num_bits):

@@ -1,7 +1,19 @@
-from sage.all import *
+from sage.all import (
+    ceil,
+    divisors,
+    factorial,
+    floor,
+    imag,
+    Integer,
+    log,
+    real,
+    round,
+)
+import numpy as np
+from .bit_rev import bit_rev_vector
+from .fast_dft import get_grouped_E, get_grouped_F, Multidiags
 from .lattice_estimator.estimator import LWE, ND
-from .poly import *
-from .fast_dft import *
+from .poly import Poly
 
 
 class CKKS:
@@ -22,13 +34,13 @@ class CKKS:
             L_boot (int):
                 Maximal level during bootstrapping.
             q0 (int):
-                Smallest modulus.
+                Base modulus.
             p (int):
                 Scaling factor outside of bootstrapping.
             delta (int):
                 Scaling factor during bootstrapping.
             print_messages (bool, optional):
-                Whether to print information messages. Defaults to True.
+                Whether to print information messages. Defaults to False.
 
         Raises:
             ValueError:
@@ -59,7 +71,7 @@ class CKKS:
 
         cls.N = N  # Ring degree
         cls.n = n  # Number of slots
-        cls.q0 = q0  # Smallest modulus
+        cls.q0 = q0  # Base modulus
         cls.p = p  # Scaling factor outside of bootstrapping
         cls.delta = delta  # Scaling factor during bootstrapping
 
@@ -76,7 +88,7 @@ class CKKS:
         ]  # The ct moduli used during bootstrapping
 
         if print_messages:
-            print("The CKKS configuration is done!\n")
+            print("The CKKS configuration is done!")
 
     # Key generation
 
@@ -90,7 +102,7 @@ class CKKS:
         Args:
             h (int, optional):
                 Hamming weight of the secret key. Defaults to
-                2 ** min(6, 2 ** (log(N, 2) / 2)).
+                2 ** min(6, (log(N, 2) // 2)).
             sk (Poly, optional):
                 Secret key for scheme. Defaults to a ternary polynomial of
                 Hamming weight equal to h.
@@ -103,7 +115,7 @@ class CKKS:
             sigma (float, optional):
                 Standard deviation for error polynomials. Defaults to 3.2.
             print_messages (bool, optional):
-                Whether to print information messages. Defaults to True.
+                Whether to print information messages. Defaults to False.
 
         Raises:
             RuntimeError:
@@ -124,7 +136,7 @@ class CKKS:
         cls.P = cls.moduli_boot[-1] if P is None else P
         cls.sigma = 3.2 if sigma is None else sigma
 
-        q_sk = cls.P * cls.moduli[-1]  # Modulus for secret key
+        q_sk = cls.P * cls.moduli_boot[-1]  # Modulus for secret key
         if sk is not None:
             cls.sk = sk % q_sk
         else:
@@ -135,7 +147,9 @@ class CKKS:
         pk0 = e - pk1 * cls.sk
         cls.pk = (pk0, pk1)
 
-        q_evk = cls.P * (cls.moduli[-1] if q is None else q)  # Modulus for evk
+        q_evk = cls.P * (
+            cls.moduli_boot[-1] if q is None else q
+        )  # Modulus for evk
         e = Poly.get_random_normal(cls.N, q_evk, cls.sigma)
         evk1 = Poly.get_random_uniform(cls.N, q_evk)
         evk0 = e + cls.P * cls.sk**2 - evk1 * cls.sk
@@ -144,7 +158,7 @@ class CKKS:
         cls.galois_swk_dict = {}  # Dictionary containing the swk for Galois
 
         if print_messages:
-            print("The key generation is done!\n")
+            print("The key generation is done!")
 
     @classmethod
     def _check_key_gen(cls):
@@ -404,6 +418,8 @@ class CKKS:
         """
         try:
             n = len(z)
+            if n == 1:
+                z = z[0]
         except TypeError:
             n = 1
 
@@ -737,7 +753,7 @@ class CKKS:
 
     def __iadd__(self, other):
         """
-        Add another ciphertext or plaintext, in place.
+        Add another ciphertext or plaintext, in-place.
 
         Args:
             other (CKKS or Poly or int):
@@ -794,7 +810,7 @@ class CKKS:
 
     def __isub__(self, other):
         """
-        Subtract another ciphertext or plaintext, in place.
+        Subtract another ciphertext or plaintext, in-place.
 
         Args:
             other (CKKS or Poly or int):
@@ -844,7 +860,7 @@ class CKKS:
 
         Args:
             other (CKKS or Poly or int):
-                The ciphertext or plaintext to right multiply with.
+                The ciphertext or plaintext to right-multiply with.
 
         Returns:
             CKKS:
@@ -854,7 +870,7 @@ class CKKS:
 
     def __imul__(self, other):
         """
-        Multiply with another ciphertext or plaintext, in place.
+        Multiply with another ciphertext or plaintext, in-place.
 
         Args:
             other (CKKS or Poly or int):
@@ -886,7 +902,7 @@ class CKKS:
 
         Args:
             other (CKKS or Poly or int):
-                The ciphertext or plaintext to right multiply with.
+                The ciphertext or plaintext to right-multiply with.
 
         Returns:
             CKKS:
@@ -896,7 +912,7 @@ class CKKS:
 
     def __imatmul__(self, other):
         """
-        Multiply and rescale with another ciphertext or plaintext, in place.
+        Multiply and rescale with another ciphertext or plaintext, in-place.
 
         Args:
             other (CKKS or Poly or int):
@@ -1116,7 +1132,7 @@ class CKKS:
                 "the length a of the original vector."
             )
 
-        log_a_over_b = log(a / b, 2)
+        log_a_over_b = int(round(log(a // b, 2)))
         if swks is None:
             swks = [None] * log_a_over_b
         for l in range(log_a_over_b):
@@ -1157,8 +1173,7 @@ class CKKS:
                 "The length b of the resulting vector should divide "
                 "the length a of the original vector."
             )
-
-        log_a_over_b = log(a / b, 2)
+        log_a_over_b = int(round(log(a // b, 2)))
         if swks is None:
             swks = [None] * log_a_over_b
         for l in range(log_a_over_b):
@@ -1197,8 +1212,8 @@ class CKKS:
 
     def BSGS_left_mult(self, poly_matrix):
         """
-        Perform fast matrix ciphertext multiplication using the Baby Step Giant
-        Step algorithm.
+        Perform fast matrix-ciphertext multiplication using the Baby-Step
+        Giant-Step algorithm.
 
         Args:
             poly_matrix (dict):
@@ -1259,7 +1274,7 @@ class CKKS:
     def get_BSGS_rotation_indices(cls, poly_matrix):
         """
         Calculate the rotation indices required for the fast matrix ciphertext
-        multiplication using the Baby Step Giant Step algorithm. This is useful
+        multiplication using the Baby-Step Giant-Step algorithm. This is useful
         to precompute the corresponding switching keys.
 
         Args:
@@ -1315,11 +1330,10 @@ class CKKS:
                 bootstrapping. Defaults to 1; this is fast, but consumes many
                 CKKS levels.
             print_messages (bool, optional):
-                Whether to print information messages. Defaults to True.
+                Whether to print information messages. Defaults to False.
 
         """
-        if 2**log_radix > cls.n:
-            log_radix = log(cls.n, 2)
+        log_radix = min(log_radix, log(cls.n, 2))
 
         cls._check_key_gen()
 
@@ -1380,11 +1394,11 @@ class CKKS:
             cls.get_galois_swk(5**k, sk)
         cls.get_galois_swk(-1, sk)  # For conjugation
         for k in range(log(cls.N, 2)):
-            # Rotation by powers of two
+            # For rotation by powers of two
             cls.get_galois_swk(5 ** (2**k), sk)
 
         if print_messages:
-            print("The bootstrapping configuration is done!\n")
+            print("The bootstrapping configuration is done!")
 
     @classmethod
     def _check_config_bootstrap(cls):
@@ -1455,7 +1469,7 @@ class CKKS:
             other (CKKS):
                 The ciphertext to compare against self.
             sk (Poly):
-                Secret key of scheme.
+                The secret key.
             n (int, optional):
                 Number of slots to consider. Defaults to self.n.
 
@@ -1467,8 +1481,8 @@ class CKKS:
         if n is None:
             n = self.n
 
-        pt = self.dec_to_poly(sk)
-        e = pt - other.dec_to_poly(sk)
+        pt = self.dec_to_poly(sk).lift(0)
+        e = pt - other.dec_to_poly(sk).lift(0)
 
         coeffs_pt = pt.get_symmetric_coeffs()
         coeffs_pt = np.array(
@@ -1483,7 +1497,10 @@ class CKKS:
         bits_pt = np.log2(np.abs(coeffs_pt) + 1)
         bits_e = np.log2(np.abs(coeffs_e) + 1)
 
-        return round(np.mean(bits_pt - bits_e), 2)
+        precision = np.round(np.mean(bits_pt - bits_e), 2)
+        if precision < 0:
+            return 0
+        return precision
 
     # Representation
 
@@ -1503,7 +1520,7 @@ class CKKS:
                 f"and modulus q = ",
                 f"(2^{log(self.p*self.q0,2)}) * ",
                 f"(2^{log(self.delta,2)})^{self.l}",
-                f" (level {self.l} out of {self.L_boot}).",
+                f" (level {self.l} out of {self.L_boot})",
             ]
         else:
             str = [
@@ -1511,6 +1528,6 @@ class CKKS:
                 f"with degree N = 2^{log(self.N, 2)} ",
                 f"and modulus q = ",
                 f"(2^{log(self.q0,2)}) * (2^{log(self.p,2)})^{self.l}",
-                f" (level {self.l} out of {self.L}).",
+                f" (level {self.l} out of {self.L})",
             ]
         return "".join(str)
