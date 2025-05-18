@@ -2,6 +2,7 @@ from sage.all import log, randint
 from ckks_package.ckks import CKKS
 from ckks_package.poly import Poly
 
+
 # Configuration
 
 if input("Want to enter your own parameters? (y/n) ") == "y":
@@ -87,7 +88,6 @@ print()
 print("This decrypts to:")
 print(CKKS.decode(ct_boot.dec_to_poly(CKKS.sk)))
 print()
-
 
 print("Precision in bits:")
 print(ct_low.get_precision(ct_boot, CKKS.sk))
