@@ -9,22 +9,11 @@ involving complex numbers and approximate arithmetic.
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Installation](#installation)
-- [Repository Structure](#files-and-structure)
+- [Repository Structure](#repository-structure)
 - [Usage](#usage)
 - [License](#license)
 - [References](#references)
-
-## Overview
-
-The CKKS scheme enables approximate arithmetic operations on encrypted data,
-which is useful for privacy preserving computations
-for which exact results are unnecessary or impossible to achieve.
-The scheme was originally introduced by Cheon et al. in 2016 [2],
-with subsequent work on bootstrapping by Cheon et al. in 2018 [3]
-and running time improvements for bootstrapping by Cheon et al. in 2018 [4].
-This SageMath implementation is based on these papers.
 
 ## Installation
 
