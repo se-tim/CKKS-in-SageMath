@@ -128,5 +128,5 @@ In *Advances in Cryptology – EUROCRYPT 2018*.
 Springer, 2018.
 
 4. Jung Hee Cheon, Kyoohyung Han, and Minki Hhan.
-*Improved Homomorphic Discrete Fourier Transforms and FHE Bootstrapping*.
-IEEE Access, 7, 2019.
+Improved Homomorphic Discrete Fourier Transforms and FHE Bootstrapping.
+*IEEE Access*, 7, 2019.
