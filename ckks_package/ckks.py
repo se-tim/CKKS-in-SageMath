@@ -131,7 +131,7 @@ class CKKS:
         elif h is not None:
             cls.h = h
         else:
-            cls.h = 2 ** min(6, 2 ** (log(cls.N, 2) // 2))
+            cls.h = 2 ** min(6, int(log(cls.N, 2) // 2))
 
         cls.P = cls.moduli_boot[-1] if P is None else P
         cls.sigma = 3.2 if sigma is None else sigma
