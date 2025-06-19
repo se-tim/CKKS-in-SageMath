@@ -6,12 +6,12 @@ from ckks_package.poly import Poly
 # Configuration
 
 if input("Enter your own parameters (y / n)? ") == "y":
-    N = 2 ** int(input("Ring degree: N = 2**"))
-    n = 2 ** int(input("Number of slots: n = 2**"))
+    N = 2 ** int(input("Ring degree: N = 2^"))
+    n = 2 ** int(input("Number of slots: n = 2^"))
     L = int(input("Maximal level during bootstrapping: L = "))
-    q = 2 ** int(input("Base modulus: q = 2**"))
-    p = 2 ** int(input("Scaling factor outside of bootstrapping: p = 2**"))
-    delta = 2 ** int(input("Scaling factor during bootstrapping: delta = 2**"))
+    q = 2 ** int(input("Base modulus: q = 2^"))
+    p = 2 ** int(input("Scaling factor outside of bootstrapping: p = 2^"))
+    delta = 2 ** int(input("Scaling factor during bootstrapping: delta = 2^"))
 else:
     N = 2**15
     n = 2**2
@@ -20,12 +20,12 @@ else:
     p = 2**22
     delta = 2**32
     print("We chose the following parameters:")
-    print(f"N = 2^{log(N,2)} (ring degree)")
-    print(f"n = 2^{log(n,2)} (number of slots)")
-    print(f"L = {L} (maximal level during bootstrapping)")
-    print(f"q = 2^{log(q,2)} (base modulus)")
-    print(f"p = 2^{log(p,2)} (scaling factor outside of bootstrapping)")
-    print(f"delta = 2^{log(delta,2)} (scaling factor during bootstrapping)")
+    print(f"Ring degree: N = 2^{log(N, 2)}")
+    print(f"Number of slots: n = 2^{log(n, 2)}")
+    print(f"Maximal level during bootstrapping: L = {L}")
+    print(f"Base modulus: q = 2^{log(q, 2)}")
+    print(f"Scaling factor outside of bootstrapping: p = 2^{log(p, 2)}")
+    print(f"Scaling factor during bootstrapping: delta = 2^{log(delta, 2)}")
 print()
 
 CKKS.config(N, n, L, q, p, delta, print_messages=True)
