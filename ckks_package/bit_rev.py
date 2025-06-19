@@ -2,6 +2,9 @@ from sage.all import log
 import numpy as np
 
 
+_bit_rev_dict = {}
+
+
 def bit_rev(i, num_bits):
     """
     Bit-reverse i.
@@ -16,10 +19,16 @@ def bit_rev(i, num_bits):
         int:
             The bit-reversed integer.
     """
+    if (i, num_bits) in _bit_rev_dict:
+        return _bit_rev_dict[(i, num_bits)]
+
     rev = 0
+    j = i
     for _ in range(num_bits):
-        rev = (rev << 1) | (i & 1)
-        i >>= 1
+        rev = (rev << 1) | (j & 1)
+        j >>= 1
+
+    _bit_rev_dict[(i, num_bits)] = rev
     return rev
 
 
