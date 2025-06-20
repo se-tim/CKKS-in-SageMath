@@ -79,8 +79,9 @@ Choose default parameters or manually input your own
 for ring degree, number of slots, maximal level,
 base modulus, and scaling factors.
 
-2. **Key generation**:
+2. **Key generation and bootstrapping configuration**:
 Generate secret, public and evaluation keys.
+Also perform the precomputations required for bootstrapping.
 
 3. **Security estimation**:
 Estimate the security level of the current parameter set.
