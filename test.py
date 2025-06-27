@@ -1,6 +1,5 @@
-from sage.all import log, randint
+from sage.all import log
 from ckks_package.ckks import CKKS
-from ckks_package.poly import Poly
 
 
 # Configuration
