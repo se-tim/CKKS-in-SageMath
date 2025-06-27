@@ -597,8 +597,8 @@ class Poly:
                 raise ZeroDivisionError("Divisor must be positive.")
             else:
                 raise ValueError("Divisor must be positive.")
-        if divisor == 1 and (q is None or q == self.q):
-            return self
+        if q is None:
+            q = self.q // divisor
         if self.q == 0:
             coeffs = np.empty(self.N, dtype=object)
             for i in range(self.N):
