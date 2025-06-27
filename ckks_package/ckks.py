@@ -6,6 +6,7 @@ from sage.all import (
     imag,
     Integer,
     log,
+    randint,
     real,
     round,
 )
@@ -595,6 +596,52 @@ class CKKS:
                 Decrypted plaintext polynomial.
         """
         return self.b + self.a * sk
+
+    @classmethod
+    def get_random_ciphertext(cls, sk, n=None, is_real=False, bound=None):
+        """
+        Generate a random ciphertext.
+
+        Args:
+            sk (Poly):
+                Secret key.
+            n (int, optional):
+                Length of the underlying plaintext vector. Defaults to cls.n.
+            is_real (bool, optional):
+                Whether the ciphertext should encrypt a real vector. Defaults
+                to False.
+            bound (int, optional):
+                Bound for the coefficients of the underlying plaintext
+                polynomial. Defaults to p.
+
+        Returns:
+            CKKS:
+                Random ciphertext.
+        """
+        if n is None:
+            n = cls.n
+        elif cls.N % n != 0 or n >= cls.N:
+            raise ValueError("n must be a strict divisor of N.")
+
+        if bound is None:
+            bound = cls.p
+
+        if is_real:
+            pt_coeffs = [
+                randint(-bound, bound) if i % (cls.N // (2 * n)) == 0 else 0
+                for i in range(cls.N // 2)
+            ]
+            pt_coeffs += [0] + [
+                -pt_coeffs[i] for i in range(cls.N // 2 - 1, 0, -1)
+            ]
+        else:
+            pt_coeffs = [
+                randint(-bound, bound) if i % (cls.N // (2 * n)) == 0 else 0
+                for i in range(cls.N)
+            ]
+
+        pt = Poly(pt_coeffs, cls.N)
+        return cls.enc_poly_with_sk(pt, sk)
 
     # Modular reduction, lifting and rescaling
 
@@ -1459,7 +1506,7 @@ class CKKS:
 
         return ct.boot_to_nonboot()
 
-    def get_precision(self, other, sk, n=None):
+    def get_precision(self, other, sk, n=None, is_real=False):
         """
         Compute the average number of bits of precision preserved in the
         coefficients of the underlying plaintext polynomial of other, relative
@@ -1472,6 +1519,9 @@ class CKKS:
                 The secret key.
             n (int, optional):
                 Number of slots to consider. Defaults to self.n.
+            is_real (bool, optional):
+                Whether the underlying plaintext vector is real-valued.
+                Defaults to False.
 
         Returns:
             float:
@@ -1488,11 +1538,15 @@ class CKKS:
         coeffs_pt = np.array(
             [abs(int(coeffs_pt[i * self.N // (2 * n)])) for i in range(2 * n)]
         )
+        if is_real:
+            coeffs_pt = np.delete(coeffs_pt, n)
 
         coeffs_e = e.get_symmetric_coeffs()
         coeffs_e = np.array(
             [abs(int(coeffs_e[i * self.N // (2 * n)])) for i in range(2 * n)]
         )
+        if is_real:
+            coeffs_e = np.delete(coeffs_e, n)
 
         bits_pt = np.log2(np.abs(coeffs_pt) + 1)
         bits_e = np.log2(np.abs(coeffs_e) + 1)

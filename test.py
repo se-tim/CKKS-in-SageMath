@@ -43,24 +43,15 @@ print()
 
 # Testing main functionalities
 
-print("Two randomly generated complex vectors:")
-polynomials = [
-    Poly(
-        [randint(-p, p) if i % (N // (2 * n)) == 0 else 0 for i in range(N)],
-        N,
-    )
-    for _ in range(2)
-]
-vectors = [CKKS.decode(polynomials[i]) for i in range(2)]
-print(vectors[0])
-print(vectors[1])
-print()
-
-print("Encrypting them:")
-polynomials = [CKKS.encode(z) for z in vectors]
-ciphertexts = [CKKS.enc_poly_with_pk(pol, CKKS.pk) for pol in polynomials]
+print("Two randomly generated ciphertexts:")
+ciphertexts = [CKKS.get_random_ciphertext(CKKS.sk) for _ in range(2)]
 print(ciphertexts[0])
 print(ciphertexts[1])
+print()
+
+print("They decrypt to:")
+for i in range(2):
+    print(CKKS.decode(ciphertexts[i].dec_to_poly(CKKS.sk)))
 print()
 
 print("Homomorphic addition and multiplication:")
