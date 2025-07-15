@@ -892,8 +892,8 @@ class CKKS:
 
         self._check_boot_status(other)
         d0 = self.b * other.b
-        d1 = self.a * other.b + other.a * self.b
         d2 = self.a * other.a
+        d1 = (self.a + self.b) * (other.a + other.b) - d0 - d2
         d2_lift = d2.lift(d2.q * self.P)
         return self.__class__(
             d0 + (d2_lift * self.evk[0]).divide(self.P, d2.q),
