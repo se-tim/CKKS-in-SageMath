@@ -1224,7 +1224,7 @@ class CKKS:
         if swks is None:
             swks = [None] * log_a_over_b
         for l in range(log_a_over_b):
-            self @= self.rotate(a // 2 ** (l + 1), swks[l])
+            self @= self.rotate(a // 2 ** (l + 1), n=a, swk=swks[l])
         return self
 
     # Multiplication by special matrices
@@ -1257,6 +1257,66 @@ class CKKS:
             for i in A.get_symm_diag_indices()
         }
 
+    @classmethod
+    def get_BSGS_rotation_indices(cls, poly_matrix, two_arrays=False):
+        """
+        Calculate the rotation indices required for the fast matrix-ciphertext
+        multiplication using the Baby-Step Giant-Step algorithm. This is useful
+        to precompute the corresponding switching keys.
+
+        Args:
+            poly_matrix (dict):
+                Dictionary mapping diagonal indices to polynomials. Ensure that
+                the corresponding matrix is sufficiently regular to allow for
+                the Baby-Step Giant-Step algorithm to be performed. Two cases
+                are supported:
+                - The list of non-zero diagonal indices of the matrix consists
+                  of several blocks of the same number of consecutive
+                  integers, e.g., [-6,-5,-4,-1,0,1,4,5,6]. The middle block is
+                  assumed to be centered around zero.
+                - The list of non-zero diagonal indices of the matrix forms an
+                  arithmetic progression, e.g., [-8,-6,-4,-2,0,2,4,6,8].
+            two_arrays (bool, optional):
+                Whether to return two separate lists of rotation indices.
+                Defaults to False.
+
+        Returns:
+            list:
+                The list of rotation indices.
+        """
+        U = list(poly_matrix.keys())
+
+        if len(U) == 1:
+            rotation_indices0 = [U[0]]
+            rotation_indices1 = [0]
+
+        elif 0 in U and 1 in U:
+            # Case 1
+            rotation_indices0 = []
+            i = 0
+            while i in U and -i in U:
+                rotation_indices0.append(i)
+                if i != 0:
+                    rotation_indices0.append(-i)
+                i += 1
+            rotation_indices1 = [
+                i - max(rotation_indices0) for i in U if i + 1 not in U
+            ]
+
+        else:
+            # Case 2
+            k0 = int(np.ceil(np.sqrt(len(U))))
+            k1 = int(np.ceil(len(U) / k0))  # k0 * k1 >= len(U)
+            d = U[1] - U[0]
+            u_min = min(U)
+
+            rotation_indices0 = [d * i + u_min for i in range(k0)]
+            rotation_indices1 = [d * i * k0 for i in range(k1)]
+
+        if two_arrays:
+            return rotation_indices0, rotation_indices1
+        return rotation_indices0 + rotation_indices1
+
     def BSGS_left_mult(self, poly_matrix):
         """
         Perform fast matrix-ciphertext multiplication using the Baby-Step
@@ -1264,96 +1324,33 @@ class CKKS:
 
         Args:
             poly_matrix (dict):
-                Dictionary mapping diagonal indices to polynomials.
+                Dictionary mapping diagonal indices to polynomials. Ensure that
+                the corresponding matrix is sufficiently regular to allow for
+                the Baby-Step Giant-Step algorithm to be performed.
 
         Returns:
             CKKS:
                 Resulting ciphertext.
-
-        Raises:
-            ValueError:
-                If the matrix is not regular.
         """
-        U = list(poly_matrix.keys())
-        if 0 not in U:
-            raise ValueError("The matrix is not regular.")
-        if len(U) == 1:
-            return self @ poly_matrix[0]
-        d = U[1] - U[0]
-        u_min = min(U)
-        u_max = max(U)
-        t = (u_max - u_min) // d + 1
-
-        while t & t - 1 != 0:
-            # Ensure that t is a power of two
-            t += 1
-        half_log_t = log(t, 2) / 2
-        k0 = 2 ** floor(half_log_t)
-        k1 = 2 ** ceil(half_log_t)
+        rotation_indices0, rotation_indices1 = self.get_BSGS_rotation_indices(
+            poly_matrix, two_arrays=True
+        )
 
         rotated_ct = {}
-
         ct_out = self.enc_poly_without_error(0, self.is_boot)
-        for i in range(k0):
+        for j in rotation_indices1:
             ct = self.enc_poly_without_error(0, self.is_boot)
-            is_non_zero_term = False
-            a = d * i * k1
-            for j in range(k1):
-                b = d * j + u_min
-                c = a + b
-                if c > u_max:
-                    # Zero diagonal
-                    continue
+            for i in rotation_indices0:
+                c = i + j
                 if c in poly_matrix:
-                    is_non_zero_term = True
-                    if b not in rotated_ct:
-                        rotated_ct[b] = self.rotate(b)
                     my_poly = poly_matrix[c]
-                    my_poly = my_poly.galois(5 ** ((-a) % self.n))
-                    ct += my_poly * rotated_ct[b]
-            if is_non_zero_term:
-                ct = ct.rotate(a)
-                ct_out += ct
+                    if i not in rotated_ct:
+                        rotated_ct[i] = self.rotate(i)
+                    my_poly = my_poly.galois(5 ** ((-j) % self.n))
+                    ct += my_poly * rotated_ct[i]
+            ct_out += ct.rotate(j)
 
         return ct_out.rescale()
-
-    @classmethod
-    def get_BSGS_rotation_indices(cls, poly_matrix):
-        """
-        Calculate the rotation indices required for the fast matrix ciphertext
-        multiplication using the Baby-Step Giant-Step algorithm. This is useful
-        to precompute the corresponding switching keys.
-
-        Args:
-            poly_matrix (dict):
-                Dictionary mapping diagonal indices to polynomials.
-
-        Returns:
-            list:
-                The list of rotation indices.
-        """
-        U = list(poly_matrix.keys())
-        if 0 not in U:
-            raise ValueError("The matrix is not regular.")
-        if len(U) == 1:
-            return [0]
-        d = U[1] - U[0]
-        u_min = min(U)
-        u_max = max(U)
-        t = (u_max - u_min) // d + 1
-
-        while t & t - 1 != 0:
-            # Ensure that t is a power of two
-            t += 1
-        half_log_t = log(t, 2) / 2
-        k0 = 2 ** floor(half_log_t)
-        k1 = 2 ** ceil(half_log_t)
-
-        rotation_indices = [(d * j + u_min) % cls.n for j in range(k1)] + [
-            (d * i * k1) % cls.n for i in range(k0)
-        ]
-
-        return rotation_indices
 
     #  Bootstrapping
 
@@ -1438,9 +1435,9 @@ class CKKS:
         for poly_matrix in grouped_poly_F + grouped_poly_iF:
             rotation_indices += cls.get_BSGS_rotation_indices(poly_matrix)
         for k in rotation_indices:
-            cls.get_galois_swk(5**k, sk)
+            cls.get_galois_swk(5 ** (k % cls.n), sk)
         cls.get_galois_swk(-1, sk)  # For conjugation
-        for k in range(log(cls.N, 2)):
+        for k in range(log(cls.n, 2), log(cls.N // 2, 2)):
             # For rotation by powers of two
             cls.get_galois_swk(5 ** (2**k), sk)
 
