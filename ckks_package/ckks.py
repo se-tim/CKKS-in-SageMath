@@ -1,5 +1,4 @@
 from sage.all import (
-    ceil,
     divisors,
     factorial,
     floor,
