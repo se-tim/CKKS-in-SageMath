@@ -1289,11 +1289,11 @@ class CKKS:
             rotation_indices0 = [U[0]]
             rotation_indices1 = [0]
 
-        elif 0 in U and 1 in U:
+        elif 0 in U and 1 in U and all((-k in U) for k in U):
             # Case 1
             rotation_indices0 = []
             i = 0
-            while i in U and -i in U:
+            while i in U:
                 rotation_indices0.append(i)
                 if i != 0:
                     rotation_indices0.append(-i)
