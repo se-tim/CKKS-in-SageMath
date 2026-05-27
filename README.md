@@ -114,20 +114,20 @@ See `LICENSE` for more details.
 
 ## References
 
-1. Martin Albrecht, Rachel Player, and Sam Scott.
-On the Concrete Hardness of Learning with Errors.
+1. Martin Albrecht, Rachel Player, and Sam Scott.  
+*On the Concrete Hardness of Learning with Errors*.  
 *Journal of Mathematical Cryptology*, 9, 2015.
 
-2. Jung Hee Cheon, Dongwoo Kim, Duhyeong Kim, and Yongsoo Song.
-Homomorphic Encryption for Approximate Numbers.
-In *Advances in Cryptology – ASIACRYPT 2017*.
+2. Jung Hee Cheon, Dongwoo Kim, Duhyeong Kim, and Yongsoo Song.  
+*Homomorphic Encryption for Approximate Numbers*.  
+In *Advances in Cryptology -- ASIACRYPT 2017*.
 Springer, 2017.
 
-3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, and Yongsoo Song.
-Bootstrapping for Approximate Homomorphic Encryption.
-In *Advances in Cryptology – EUROCRYPT 2018*.
+3. Jung Hee Cheon, Kyoohyung Han, Andrey Kim, Miran Kim, and Yongsoo Song.  
+*Bootstrapping for Approximate Homomorphic Encryption*.  
+In *Advances in Cryptology -- EUROCRYPT 2018*.
 Springer, 2018.
 
-4. Jung Hee Cheon, Kyoohyung Han, and Minki Hhan.
-Improved Homomorphic Discrete Fourier Transforms and FHE Bootstrapping.
+4. Jung Hee Cheon, Kyoohyung Han, and Minki Hhan.  
+*Improved Homomorphic Discrete Fourier Transforms and FHE Bootstrapping*.  
 *IEEE Access*, 7, 2019.
